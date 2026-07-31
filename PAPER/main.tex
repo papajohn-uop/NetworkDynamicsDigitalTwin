@@ -1,0 +1,351 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{url}
+\usepackage{xurl}
+\usepackage{hyperref}
+\renewcommand{\baselinestretch}{0.975}
+\setlength{\intextsep}{10pt plus 2pt minus 2pt}
+
+
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+
+\title{A Lightweight Kernel-Native Emulation Framework for Transport Dynamics and Labeled Trace Generation in Heterogeneous Handovers}
+
+
+\author{\IEEEauthorblockN{   
+P. Papaioannou\IEEEauthorrefmark{1}, T. Politi\IEEEauthorrefmark{2},
+C. Tranoris\IEEEauthorrefmark{3},
+S. Denazis\IEEEauthorrefmark{1}
+					 }\\
+
+	\IEEEauthorblockA{
+	    \IEEEauthorrefmark{1}Electrical \& Computer Eng. Dept., University of Patras, Greece,
+        \\
+	    \IEEEauthorrefmark{2}Department of Electrical and Computer Engineering (ECE) of the University of Peloponnese
+	    \\
+            \IEEEauthorrefmark{3}p-Net, Patras Science Park
+            \\
+		}
+			
+	\IEEEauthorblockA{
+			\{papajohn, sdena\}@upatras.gr,
+             tpoliti@uop.gr,
+             ctranoris@p-net.gr
+}
+	}
+
+
+\maketitle
+
+\begin{abstract}
+The growth, advancement, and adoption of heterogeneous access networks including the options offered by  5G and emerging 6G architectures require user equipment to perform frequent vertical handovers between diverse radio interfaces, often migrating active transport sessions mid-transfer. Evaluating transport-layer behavior under these conditions is difficult: discrete-event simulators abstract away real OS scheduling and socket-layer effects, while hardware testbeds are costly and hard to reproduce. This paper presents a lightweight, kernel-native emulation framework built on vanilla Linux network namespaces and tc netem, which executes unmodified application binaries over the authentic Linux TCP/IP stack while injecting controllable link impairments. The framework further incorporates a non-intrusive,capable of milliseconds-scale socket telemetry engine that logs kernel-level info like, congestion window, RTT, and retransmission metrics, producing labeled traces suitable for training machine learning models for traffic steering. We validate the framework through a case study of 100 MB file transfers, comparing an uninterrupted single-interface transfer against a transfer undergoing a vertical handover with active socket re-establishment (hard reset) at the 50\% mark, under parametric sweeps of latency, jitter, and packet loss. Results reveal a counterintuitive crossover: under correlated packet loss, the handover with a hard reset completes faster than the undisturbed transfer on the same degraded link, by up to 12 seconds — because the fresh socket clears accumulated RTO exponential backoff state that the continuing connection is otherwise forced to carry.
+
+\end{abstract}
+
+% \enlargethispage{-0.04in}
+
+\begin{IEEEkeywords}
+Network Emulation, Network Namespaces, TCP Telemetry, Handover, Socket Reset, Real-System Emulation Data
+\end{IEEEkeywords}
+
+
+\section{Introduction}
+The rapid deployment of 5G-Advanced and ongoing architectural formulations for next-generation (6G) networks have turned heterogeneous network topologies into the baseline standard for mobile user equipment (UE). Modern mobile devices are equipped with multiple wireless transceivers capable of simultaneous connection to diverse access networks, including 5G Standalone (SA) macrocells, localized millimeter-wave (mmWave) small cells, Wi-Fi 7 wireless local area networks (WLANs), and Non-Terrestrial Networks (NTN) such as Low Earth Orbit (LEO) satellite constellations. As a user traverses the available cells, the UE must execute rapid \textit{vertical link handovers}— possibly abruptly migrating active, long-lived data sessions from one underlying network interface to another. 
+
+To optimize transport protocol performance and configure connection parameters effectively during these handovers, researchers require high-fidelity, repeatable tools to evaluate socket-level and kernel-level protocol behaviors under varied network impairments. Historically, researchers have chosen between discrete-event simulators (e.g., ns-3 \cite{henderson2008ns3}), lightweight container-based virtual emulators (e.g., Mininet \cite{heller2010mininet}), full operating system virtualization using Virtual Machines (VMs), or hardware testbeds. While simulators are highly scalable, they rely on abstract mathematical approximations of the socket layer and TCP state machines, omitting real-world OS scheduler overhead, context-switching latency, thread scheduling, local socket buffer dynamics, and disk page-cache behaviors. Conversely, hardware testbeds are expensive, difficult to configure, and hard to scale, while container-based systems can introduce virtualization overheads or timing deviations under heavy traffic emulation \cite{nussbaum2009linux}.
+
+To bridge this gap, this paper introduces a lightweight, kernel-native network emulation framework built entirely on a vanilla Linux distribution. The primary objective of this framework is to provide a low-overhead, easily reproducible environment for testing, profiling, and validating various transport and application connection parameters over the authentic, un-approximated Linux TCP/IP stack. By leveraging native kernel features—specifically network namespaces (\texttt{netns}) 
+ \cite{biederman2006multiple} and Traffic Control queueing disciplines (\texttt{tc netem}) \cite{hemminger2005netem}, our framework executes unmodified, production-grade application binaries directly, capturing realistic system timing, CPU context-switching, and local OS scheduling behaviors.
+
+Beyond running application-level tests, the framework is designed to generate data for offline analysis. It incorporates a non-intrusive, port-tracked socket telemetry engine that queries active socket states directly from the kernel using the Socket Statistics (\texttt{ss}) utility \cite{ssutility} at a millisecond scale. This enables the framework to output high-fidelity, labeled semi-synthetic network traces that map real-world socket metrics (such as congestion window $cwnd$\cite{jacobson1988congestion}, RTT, and retransmission statistics) to specific impairment labels, providing a valuable training dataset for machine learning models designed for intelligent traffic steering and path prediction.
+
+We validate the utility of our framework through a transport-layer case study analyzing the vertical handover transition of a 100 MB file transfer under asymmetric link degradation. We use the framework to perform automated multi-parameter sweeps (latency, loss, jitter, and rate limits) to evaluate the handover overhead of Active Socket Re-establishment (intentionally resetting the connection state) relative to an uninterrupted single-link baseline transfer. The emulated evaluations successfully expose critical, fine-grained system behaviors—such as the Linux routing cache caching vulnerability and the RTO-escape threshold under lossy fallback links—illustrating how the framework functions as an essential validation tool for transport-layer optimization.
+
+\subsection*{Problems Addressed}
+Despite significant advances in networking research, evaluating novel transport protocols, handover strategies, and application behaviors under dynamic network conditions remains challenging. This work addresses two critical challenges  in modern network experimentation:
+
+\begin{enumerate}
+    \item \textbf{The Simulation Fidelity vs. Resource Dilemma:} 
+As mentioned above, there seems to be is  lack of lightweight tools capable of executing unmodified, bare-metal application binaries on actual host kernels with real-world latency and packet loss profiles.
+
+    \item \textbf{Telemetry Distortion (The Observer Effect):} 
+    Capturing  low level transient dynamics—such as the rapid throughput spikes during TCP Slow-Start—traditionally requires heavy packet-sniffing utilities (e.g., \texttt{tcpdump}). Under high-throughput or high-loss conditions, the CPU and disk I/O overhead of these tools alters system scheduling and distorts the underlying TCP/IP state machine behaviors being measured, obscuring true protocol performance.
+\end{enumerate}
+
+To resolve these challenges, we introduce a lightweight, high-fidelity network emulation platform. The key contributions of this work are summarized as follows:
+
+\begin{itemize}
+    \item \textbf{A Versatile Network Emulator suitable for Digital Twins (Solving Problem 1):} 
+    We design a lightweight, general-purpose network emulation framework using native Linux namespaces (\texttt{netns}) and Traffic Control (\texttt{tc}). Operating directly on the host kernel, this platform allows researchers to execute unmodified application-layer binaries (such as \texttt{lftp}) under precise, user-defined network impairments without the resource costs of virtual machines. Furthermore, its direct coupling to real kernel networking components enables it to serve as a high-fidelity \textit{Network Digital Twin} for mirroring real-world network deployments.
+
+    \item \textbf{Non-Intrusive Telemetry Tracking (Solving Problem 2):} 
+    We introduce a low-overhead, polling-based telemetry trace mechanism that records socket progress with a minimal computing footprint. By avoiding heavy packet captures, our approach preserves system scheduling and captures fine-grained transient dynamics—including TCP Slow-Start bursts—without distorting the operational integrity of the stream.
+
+    \item \textbf{Methodological Isolation and PoC Validation :} 
+    We document a rigorous experimental methodology (combining \texttt{tcp\_no\_metrics\_save} and route cache flushes) that systematically eliminates kernel metric pollution across sequential runs. We validate the holistic framework using a hard IP-migration Proof of Concept (PoC), proving its ability to cleanly capture and isolate highly dynamic, transient transport-layer transitions.
+\end{itemize}
+
+\section{Related Work}
+The evaluation of transport protocol dynamics and connection parameter behaviors during vertical handovers has been investigated through various testing methodologies and protocol-level optimizations.
+
+\subsection{Network Emulation vs. Simulation}
+Evaluating transport protocols under dynamic network topologies typically relies on discrete-event simulators like ns-3 \cite{henderson2008ns3}. While simulators provide excellent scalability for massive topologies, they model the socket layer and TCP state machines using simplified mathematical approximations, omitting real-world OS scheduler overhead, context-switching latency, and driver-level queueing dynamics. Conversely, hardware testbeds are highly realistic but suffer from high costs, configuration complexity, and poor reproducibility. Software emulators like Dummynet \cite{rizzo1997dummynet} run in-kernel packet filtering to inject delays and drop rules, but they are often bound to specific operating system structures and lack container-level network isolation. Container-based virtual emulators like Mininet \cite{heller2010mininet} execute real application binaries over the Linux kernel but are primarily designed for OpenFlow SDN architectures and can introduce higher CPU scheduling overheads under heavy traffic constraints \cite{nussbaum2009linux}. In \cite{net_ems_comparison} the authors survey and compare various network emulators both commercial and open source while evaluating of railroad communication networks, Furthermore, state-of-the-art industry profiling has increasingly gravitated toward Extended Berkeley Packet Filter (eBPF) engines for low-overhead, non-intrusive kernel telemetry tracking \cite{Cassagnes2020eBPF}. However, eBPF architectures require complex program compilation, structural injection, and specific kernel privileges that reduce portable reproducibility across standard test environments. In contrast, our lightweight namespace-based testbed operates natively at the Linux socket layer, offering a low-overhead, hyper-realistic alternative for evaluating transport protocols under controllable link impairments.
+
+\subsection{Handover State Migration \& Caching}
+To prevent performance degradation during handovers, early research explored state-caching and transport-layer feedback loops. Protocols like Freeze-TCP \cite{goff2000freeze} attempt to prevent congestion window collapse during disconnections by advertising a zero window to the sender, freezing the connection state until the handover completes. Similarly, F-RTO (Forward RTO-Recovery) \cite{sarolahti2009f_rto} detects spurious retransmission timeouts caused by temporary disconnections, preventing the sender from unnecessarily entering slow-start. At the socket layer, Snoeren and Balakrishnan \cite{snoeren2000end} proposed an end-to-end connection migration architecture using TCP options to negotiate address handovers, allowing active sessions to persist across interface changes. However, this and other state-caching approaches rely on carrying over the Transmission Control Block (TCB) metrics (such as $cwnd$ and $ssthresh$) between paths. This carryover can be counterproductive if the new link's capacity is lower than the old path, or if the connection is trapped in a collapsed RTO backoff that throttles performance.
+
+\subsection{Modern Session Migration (MPTCP \& QUIC)}
+To address path transitions natively, modern protocols integrate multi-homing. Multipath TCP (MPTCP) \cite{rfc8684} enables a single connection to split traffic across multiple virtual interfaces using separate TCP subflows. In their empirical study, Paasch et al. \cite{paasch2012exploring} demonstrated that MPTCP can achieve seamless, "make-before-break" handovers between Wi-Fi and cellular networks by dynamically adding and removing subflows. However, they note that MPTCP subflows still suffer from state carryover.
+% If a primary subflow degrades, MPTCP's congestion window control couples the windows, meaning a lossy link can still bottleneck the aggregate transfer speed unless the subflow is forcefully destroyed. 
+Similarly, QUIC \cite{rfc9000} supports native connection migration by identifying connections via unique IDs rather than the 4-tuple, allowing active sessions to persist across IP address changes.
+% While QUIC resets the congestion window upon migration to prevent overloading the new path, legacy RTT history and socket metrics can still carry over, causing recovery delays. Our framework enables researchers to systematically profile these state carryover dynamics and evaluate alternative transition policies, such as active socket resets.
+
+
+
+\section{Emulation Testbed Architecture}
+The framework is designed to run on any standard Linux host or virtual machine without specialized hardware dependencies. It utilizes kernel namespaces to isolate the network environments of the client and server.
+
+\begin{figure*}[htbp]
+\centering
+\includegraphics[width=0.8\textwidth]{results/topology.png}
+\caption{Emulation testbed topology. A client namespace (\texttt{left-ns}) is connected to a server namespace (\texttt{right-ns}) via two independent virtual Ethernet (\texttt{veth}) interface paths simulating Subnet 1 (degraded primary path) and Subnet 2 (clean fallback path) controlled by \texttt{tc netem} queues.}
+\label{fig:topology}
+\end{figure*}
+
+\subsection{Namespace and Virtual Link Topology}
+The network topology is illustrated in Fig. \ref{fig:topology}.
+\begin{enumerate}
+    \item \textbf{Isolated Namespaces:} We create a client namespace (`left-ns`) and a server namespace (`right-ns`). All routing tables, interface states, and socket connections are fully isolated.
+    \item \textbf{Dual Virtual Ethernet Paths:} We provision two independent virtual ethernet (`veth`) link pairs connecting the namespaces:
+    \begin{itemize}
+        \item Link A: Connects `veth-left1` (Subnet 1: `10.0.1.1`) to `veth-right1` (Subnet 1: `10.0.1.2`).
+        \item Link B: Connects `veth-left2` (Subnet 2: `10.0.2.1`) to `veth-right2` (Subnet 2: `10.0.2.2`).
+    \end{itemize}
+\end{enumerate}
+
+
+
+
+\subsection{Dynamic Impairment Injection}
+Link characteristics are manipulated at the kernel queue level using Traffic Control (`tc`) with the Network Emulator (`netem`) qdisc. The framework supports dynamic, live impairment sweeps:
+\begin{itemize}
+    \item \textbf{Bandwidth Rate Limiting:} Configured using standard `netem` rate parameters for our active evaluations (though Token Bucket Filter (`tbf`) is also supported by the emulation framework).
+    \item \textbf{Latency \& Jitter:} Injects propagation delays and normal/uniform delay distributions.
+    \item \textbf{Packet Loss}: Emulates independent random loss probabilities (Bernoulli process) or multi-state correlation models (such as the 2-state Gilbert-Elliot or 4-state Markov chains supported by \texttt{netem}).
+\end{itemize}
+
+\subsection{Handover Orchestration}
+During file transfer, a background control thread monitors the bytes transferred. Upon hitting a user-defined threshold (e.g., 50\% progress), the scheduler triggers the handover:
+\begin{enumerate}
+    \item \textbf{Link Invalidation:} Destroys the primary link (`veth-right1` state set to `DOWN`).
+    \item \textbf{Interface Promotion:} Activates the backup interface (`veth-right2` state set to `UP`).
+    \item \textbf{Destination Switching:} The client application is routed to target the alternative server IP address (`10.0.2.2`).
+\end{enumerate}
+
+
+\subsection{Software Harness and Orchestration Scripts}
+The emulation framework is orchestrated by a unified software harness composed of three primary scripts:
+\begin{itemize}
+    \item \textbf{Core Emulation Script (\texttt{lftp-migration-test.sh}):} This bash script executes namespace lifecycle setup, interface configuration, virtual routing setup, and link degradation injection using \texttt{tc netem}. It spawns the FTP daemon and handles the vertical handover transition at the 50\% download boundary by setting the active interface state to \texttt{DOWN}.
+    \item \textbf{Socket Telemetry Daemon (\texttt{cwnd\_logger.sh}):} This background logging script runs inside the server namespace. It continuously polls the kernel TCP socket metrics using the Linux \texttt{ss} utility at a high frequency, compiling real-time congestion window and RTT logs.
+    \item \textbf{Automation Harness (\texttt{batch\_runner.py}):} A Python orchestration script that parses configuration profiles from \texttt{config.json}. It automates parametric sweeps by executing iterations of the core test, managing cooldown states, and compiling raw trace iterations into a master dataset.
+\end{itemize}
+To facilitate reproducibility and encourage community extensions, the complete orchestration harness, dataset telemetry logs, and configuration sweeps are made publicly available at \url{https://github.com/placeholder-user/handover-emulation}.
+
+
+
+\section{Socket Telemetry \& Labeled Trace Generation}
+To capture the exact transport-layer reaction to these handovers, the framework includes a high-precision, non-intrusive socket telemetry engine.
+
+\subsection{Kernel-State Telemetry Logging}
+The logger operates in the background, executing in the sender's namespace (`right-ns`). It queries the active sockets via the Linux Socket Statistics (`ss`) tool:
+\begin{equation}
+    \text{ss -t -i -n}
+\end{equation}
+The `-n` flag is critical to prevent the OS from resolving numeric port boundaries (e.g., resolving the FTP control port `2121` to `iprop` in `/etc/services`), ensuring consistent script parsing.
+
+The telemetry stream is parsed using a lightweight `awk` engine that:
+\begin{enumerate}
+    \item Filters out control channels by ignoring the configured control port (e.g., local port `2121` for FTP).
+    \item Detects the active interface by inspecting link liveness states, ignoring lingering sockets on dead links.
+    \item Extracts the exact congestion window (`cwnd`) segments, Round-Trip Time (RTT), and retransmission metrics.
+\end{enumerate}
+
+\subsection{Real-System Emulation Dataset Formulation}
+The telemetry data is appended to a structured CSV trace log along with high-precision epoch timestamps. Each row represents a labeled sample:
+\begin{equation}
+    D = \{ (t_i, S_i, c_i) \}
+\end{equation}
+where $t_i$ is the timestamp, $S_i$ is the operational state label (`Phase1\_Baseline`, `Phase2\_Migrated`, or `Uninterrupted\_Baseline`), and $c_i$ is the congestion window size. By combining these traces with the configured link impairments (latency, loss, jitter) from the test configurations, the framework produces labeled datasets. These are highly valuable for training reinforcement learning agents or classifier models to predict optimal handover moments based on transport patterns.
+
+
+\section{Case Study Evaluation: Handover Overhead of Active Socket Reset}
+\begin{figure*}[t]
+\centering
+\begin{minipage}{0.32\linewidth}
+  \centering
+  \includegraphics[width=\linewidth]{results/plot_cwnd_trace_pure_baseline_control.png}
+  \caption{Baseline Control (0ms, 0\% Loss)}
+  \label{fig:cwnd_clean}
+\end{minipage}
+\hfill
+\begin{minipage}{0.32\linewidth}
+  \centering
+  \includegraphics[width=\linewidth]{results/plot_cwnd_trace_sweep_latency_sweep_10ms_0ms_0.png}
+  \caption{Sawtooth Pattern (10ms, 0\% Loss)}
+  \label{fig:cwnd_sawtooth}
+\end{minipage}
+\hfill
+\begin{minipage}{0.32\linewidth}
+  \centering
+  \includegraphics[width=\linewidth]{results/plot_cwnd_trace_sweep_loss_sweep_20ms_0ms_05.png}
+  \caption{Degraded Path (20ms, 0.5\% Loss)}
+  \label{fig:cwnd_loss}
+\end{minipage}
+\caption{Congestion window ($cwnd$) dynamics during vertical handovers, contrasting the clean control network (Fig. 2), the steady-state sawtooth latency profile (Fig. 3), and the degraded lossy link environment (Fig. 4).}
+\label{fig:cwnd_comparison}
+\end{figure*}
+
+To validate our emulation framework and demonstrate its utility in testing transport-layer parameters, we conduct a multi-parameter evaluation sweep analyzing a critical multi-connectivity handover scenario: Active Socket Re-establishment (hard reset) versus single link transfer, as baseline.
+
+\subsection{Experimental Setup}
+The emulation environment is provisioned on a bare-metal Linux host running Ubuntu 20.04 with a vanilla kernel. The system topology is configured as follows:
+\begin{itemize}
+    \item \textbf{Application and Server:} We execute the standard \texttt{lftp} utility within the client namespace (\texttt{left-ns}) to download a 100 MB binary file populated with pseudorandom data. The server namespace (\texttt{right-ns}) runs an instance of a lightweight Python FTP daemon (\texttt{pyftpdlib}) bound to all interfaces.
+    \item \textbf{Network Interfaces and Routing:} The namespaces are connected via two distinct subnets: Subnet 1 (Primary, \texttt{10.0.1.0/24}) and Subnet 2 (Backup, \texttt{10.0.2.0/24}). During the transfer baseline, traffic is routed through Subnet 1. 
+    \item \textbf{Impairment Scenarios:} Network impairments are injected at the egress interfaces of both namespaces using Linux \texttt{tc netem}. While Subnet 2 represents a clean, unimpaired link (0 ms latency, 0\% loss), Subnet 1 is subjected to three parametric sweeps: Latency (10 ms to 40 ms), Independent Random Packet Loss (0.1\% to 1.0\%), and Latency Jitter (2 ms to 5 ms). The specific configurations are summarized in Table~\ref{tab:setup}.
+    \item \textbf{Handover Orchestration:} Upon transferring exactly 50\% of the file (50 MB), the background controller thread triggers the vertical handover. The primary link interface is set to \texttt{DOWN}, and the backup interface is promoted to \texttt{UP}. In the active reset strategy, the active socket is destroyed, and the client application immediately establishes a fresh TCP socket targeting Subnet 2 to resume the transfer. In the continuous baseline, the transfer is performed over the initial subnet with no switch,.
+    \item \textbf{Data Collection:} The background telemetry daemon polls the kernel TCP metrics via \texttt{ss -t -i -n} at a 10 ms interval, outputting real-system emulation logs containing time-series traces of $cwnd$, RTT, and retransmissions. We execute 20 independent iterations per configuration to compile statistical summaries.
+\end{itemize}
+
+\begin{table}[t]
+\caption{Emulation Test Configurations and Parametric Sweeps}
+\centering
+\begin{tabular}{llcccc}
+\toprule
+\textbf{Config ID} & \textbf{Sweep Domain} & \textbf{Bitrate}, \textbf{Latency} , \textbf{Jitter} , \textbf{Packet Loss} \\
+\midrule
+C1 &  Baseline & 50 Mbps , 0 ms , 0 ms , 0\% \\
+C2 & Latency  & 50 Mbps , 10 ms , 0 ms , 0\% \\
+C3 & Latency  & 50 Mbps , 20 ms , 0 ms , 0\% \\
+C4 & Packet Loss  & 50 Mbps , 20 ms , 0 ms , 0.1\% \\
+C5 & Packet Loss  & 50 Mbps , 20 ms , 0 ms , 0.5\% \\
+C6 & Packet Loss  & 50 Mbps , 20 ms , 0 ms , 1.0\% \\
+C7 & Latency  & 50 Mbps , 40 ms , 0 ms , 0\% \\
+C8 & Latency Jitter  & 50 Mbps , 40 ms , 2 ms , 0\% \\
+C9 & Latency Jitter  & 50 Mbps , 40 ms , 5 ms , 0\% \\
+\bottomrule
+\end{tabular}
+\label{tab:setup}
+\end{table}
+
+\subsection{Handover Performance Sweeps}
+Table~\ref{tab:results} aggregates the measured completion times and overhead statistics across the 20 iterations compiled for each configuration.
+
+% \begin{table*}[t]
+% \caption{Handover Performance and Completion Time Results (20 Iterations Per Config)}
+% \centering
+% \begin{tabular}{ccccc}
+% \toprule
+% \textbf{Config ID} & \textbf{Baseline $\mu$ (s)} & \textbf{Migration $\mu$ (s)} & \textbf{Overhead $\mu$ (s)} & \textbf{Overhead $\sigma$ (s)} \\
+% \midrule
+% C1 & 17.602 & 17.657 & 0.054 & 0.027 \\
+% C2 & 18.353 & 18.850 & 0.496 & 0.077 \\
+% C3 & 19.552 & 20.619 & 1.067 & 0.214 \\
+% C4 & 64.913 & 57.386 & -7.528 & 13.825 \\
+% C5 & 180.509 & 168.455 & -12.053 & 11.366 \\
+% C6 & 264.299 & 256.339 & -7.961 & 13.096 \\
+% C7 & 23.495 & 23.975 & 0.479 & 2.391 \\
+% C8 & 22.396 & 24.229 & 1.833 & 1.707 \\
+% C9 & 22.696 & 25.939 & 3.243 & 2.714 \\
+% \bottomrule
+% \end{tabular}
+% \label{tab:results}
+% \end{table*}
+
+
+\begin{table}[t]
+\caption{Handover Performance and Completion Time Results (20 Iterations Per Config)}
+\centering
+\begin{tabular}{ccccc}
+\toprule
+\textbf{Config ID} & \textbf{Baseline $\mu$ (s)} & \textbf{Migration $\mu$ (s)} & \textbf{Overhead $\mu$ (s)}  \\
+\midrule
+C1 & 17.602 & 17.657 & 0.054  \\
+C2 & 18.353 & 18.850 & 0.496  \\
+C3 & 19.552 & 20.619 & 1.067  \\
+C4 & 64.913 & 57.386 & -7.528  \\
+C5 & 180.509 & 168.455 & -12.053\\
+C6 & 264.299 & 256.339 & -7.961  \\
+C7 & 23.495 & 23.975 & 0.479  \\
+C8 & 22.396 & 24.229 & 1.833  \\
+C9 & 22.696 & 25.939 & 3.243  \\
+\bottomrule
+\end{tabular}
+\label{tab:results}
+\end{table}
+
+
+\subsection{Analysis of the Crossover Threshold}
+As shown in Table~\ref{tab:results}, the performance dynamics are highly dependent on the link conditions. A key characteristic of our experimental design is that both virtual Ethernet paths (Subnet 1 and Subnet 2) are configured with the \textit{exact same} network impairment parameters (symmetric latency, loss, and jitter) during each run. While real-world vertical handovers typically occur across highly asymmetric access networks (e.g., shifting from a degraded cellular link to a high-throughput WLAN), we intentionally enforce symmetric link characteristics in this proof-of-concept evaluation to explicitly isolate and quantify transition-layer time costs. 
+By holding the underlying physical environment  constant across both interfaces, any measured delta in completion times or overhead cannot be attributed to shifting external link capacities. Instead, this symmetry isolates the internal transport-layer state machine behavior, providing a controlled baseline to evaluate pure connection transition policies—specifically, how state carryover flags stall protocol recovery versus how a hard socket reset forces an immediate escape from stale kernel timers.
+
+The transport-layer congestion window ($cwnd$) telemetry sweeps, visually contrasted in Fig.~\ref{fig:cwnd_comparison}, expose three primary physical phenomena:
+
+\subsubsection{Handover Phase Transitions}
+The time-series telemetry plots clearly delineate the handover transition stages:
+\begin{itemize}
+    \item \textbf{Phase 1 (Baseline - Blue):} The download starts on Subnet 1. The socket enters standard TCP Slow Start, exponentially ramping up the congestion window to saturate the 50 Mbps path, eventually settling into CUBIC's congestion avoidance phase with a steady-state window of 150--270 segments.
+    \item \textbf{The Transition Boundary (Vertical Red Dashed Line):} At precisely 50 MB (50\% progress), the primary Subnet 1 interface is disabled.
+    \item \textbf{Phase 2 (Migrated - Pink):} The client establishes a fresh TCP socket targeting the symmetric Subnet 2. As shown in the graphs, the $cwnd$ drops instantly to $W_{init} = 10$ segments—the standard Linux kernel initial congestion window (\texttt{initcwnd}). The socket then undergoes a fresh Slow Start phase on the backup subnet to complete the transfer.
+\end{itemize}
+
+\subsubsection{RTT-Clocked Congestion Window Growth}
+The latency sweeps (10 ms, 20 ms, and 40 ms) illustrate the self-clocked nature of TCP congestion control. Because window expansion is driven by the arrival rate of ACKs, the rate of $cwnd$ growth is inversely proportional to the path's Round-Trip Time (RTT). Since Subnet 1 and Subnet 2 are homogeneously configured with the same delay, the $cwnd$ curve in Phase 2 scales with the same RTT-driven slope as Phase 1. As the configured delay increases, the slope of both phases becomes progressively gentler, demonstrating that the self-clocking rate remains strictly bounded by the path RTT.
+
+\subsubsection{The RTO Backoff Escape Hatch}
+Under lossy link conditions (0.1\% to 1.0\% packet loss), both Subnet 1 and Subnet 2 are subjected to the same packet loss rate. The results expose a counterintuitive phenomenon: a transfer that undergoes a hard-reset handover onto an equally impaired subnet can outperform a transfer that stays on the original link for its full duration, resulting in a negative overhead (saving up to 12.0 seconds).
+In standard TCP CUBIC, packet drops trigger Fast Retransmits, halving the cwnd. Under persistent or correlated loss, if retransmitted packets are also dropped, the connection falls back to a Retransmission Timeout (RTO). During an RTO, the congestion window is collapsed to 1 segment, and the retransmission timer enters an exponential backoff sequence (1 s, 2 s, 4 s, 8 s, . . .).
+An undisturbed connection remaining on a lossy link for the entire transfer is more likely to accumulate this exponential backoff state as retransmissions repeatedly fail. Tearing down the socket at the handover point and establishing a brand-new connection on Subnet 2 resets the RTO timer back to its initial state (typically 1.0 s in Linux), even though the fresh connection must re-enter Slow Start from cwnd = 10. The results indicate that, under sustained loss, the cost of restarting Slow Start is smaller than the cost of the backoff state the undisturbed connection accumulates — so the reset can finish faster despite the handover overhead it introduces.
+
+\subsubsection{Impact of Host Route Metrics Caching}
+ While testing the framework, the behavior of the Linux routing cache metrics and the effect it has on the experiments was noted. By default, the Linux kernel saves TCP performance metrics (such as connection RTT and variance) in the routing table cache for reuse by subsequent connections to the same destination host \cite{Touch2021RFC9040}. During the Active Socket Reset transition, our telemetry monitored whether these cached metrics from the collapsed, highly degraded Subnet 1 connection were being erroneously inherited by the newly spawned socket on Subnet 2. Because the framework allows for precision tracking of the initial slow-start slope in Phase 2, we verified that forcing a clean socket re-establishment successfully circumvents stale metric carryover, allowing the backup path to accurately discover the link capacity from a baseline initcwnd state.
+
+
+\subsubsection{Jitter-Induced Spurious Fast Retransmits}
+The jitter sweeps (2 ms and 5 ms) demonstrate the impact of packet reordering under symmetric delay variance. Jitter causes packets to arrive out of order at the receiver, triggering duplicate ACKs. TCP mistakes these duplicate ACKs for packet loss, initiating spurious Fast Retransmits and unnecessarily halving the congestion window, creating an erratic, saw-toothed window pattern across both phases. Furthermore, the telemetry reveals a much wider standard deviation envelope ($\pm1\sigma$) under high jitter, indicating that delay variance introduces high instability and unpredictability in TCP behavior, leading to fluctuating completion times.
+
+
+
+
+
+
+\section{Conclusion}
+In future work, we plan to expand this research along two primary axes. First, we intend to utilize the generated real-system emulation datasets to train deep reinforcement learning agents for predictive, intelligent traffic steering. Second, we will extend the orchestration framework to evaluate modern transport-layer protocols and alternative congestion control metrics. Specifically, we will compare the active socket reset policy against native Multipath TCP (MPTCP) subflows  and QUIC connection migration \cite{rfc9000} under asymmetric link degradations. This future iteration will place particular emphasis on analyzing how a hard socket reset interacts with rate-and-RTT-driven congestion control algorithms, such as Google's BBR \cite{Cardwell2016BBR}, which fundamentally differ from loss-based algorithms like CUBIC in their architectural handling of packet loss and Retransmission Timeout (RTO) backoff states.
+
+\section*{Data and Code Availability}
+The complete emulation testbed, traffic control (tc) configuration and telemetry  scripts developed in this work are publicly available on GitHub at \url{https://github.comlets_create_a_repo}.
+
+
+\section*{Acknowledgment}
+The authors' work has been supported by the HORIZON-JU-SNS Projects AMAZING-6G (GA No. 101192035) and 6G-XCEL (GA No. 101139194), and SAND5G project (No 101127979), which received funding from the European Union's Digital Europe programme.
+
+
+% New page for camera ready
+% \clearpage
+
+\bibliographystyle{IEEEtran}
+\bibliography{sections/references}
+\end{document}
