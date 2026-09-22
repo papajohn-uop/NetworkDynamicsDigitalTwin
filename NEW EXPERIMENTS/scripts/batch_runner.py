@@ -3,6 +3,20 @@ import subprocess
 import time
 import os
 import sys
+import signal
+
+def cleanup_subprocesses(sig=None, frame=None):
+    print("\n[Batch Runner] Received stop signal. Cleaning up background daemons...")
+    try:
+        subprocess.run(["sudo", "pkill", "-9", "-f", "cwnd_logger.sh"], stderr=subprocess.DEVNULL)
+        subprocess.run(["sudo", "pkill", "-9", "-f", "pyftpdlib"], stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+    if sig is not None:
+        sys.exit(130)
+
+signal.signal(signal.SIGINT, cleanup_subprocesses)
+signal.signal(signal.SIGTERM, cleanup_subprocesses)
 
 def run_batch(config_file_path, iterations_override=None, cooldown_override=None, results_override=None, filesize_override=None):
     print(f"Config file: {config_file_path}")

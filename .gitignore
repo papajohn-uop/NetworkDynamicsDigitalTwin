@@ -1,3 +1,6 @@
+#pyc
+*.pyc
+
 # LaTeX build artifacts
 *.aux
 *.bbl
@@ -21,3 +24,6 @@ Thumbs.db
 *.csv
 *.json
 *.png
+
+NEW EXPERIMENTS/scripts/batch_runner.py
+NEW EXPERIMENTS/scripts/lftp-migration-test.sh

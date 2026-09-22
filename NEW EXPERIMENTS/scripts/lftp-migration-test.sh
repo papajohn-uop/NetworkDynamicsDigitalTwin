@@ -4,6 +4,25 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Ensure background workers are cleanly terminated on exit or interrupt
+cleanup_all() {
+    if [ -n "$CWND_LOGGER_PID" ]; then
+        kill $CWND_LOGGER_PID 2>/dev/null || true
+        wait $CWND_LOGGER_PID 2>/dev/null || true
+    fi
+    if [ -n "$LFTP_PID" ]; then
+        kill $LFTP_PID 2>/dev/null || true
+    fi
+    if [ -n "$FTP_SERVER_PID" ]; then
+        kill $FTP_SERVER_PID 2>/dev/null || true
+        pkill -P $FTP_SERVER_PID 2>/dev/null || true
+    fi
+    if [ -n "$FILENAME" ]; then
+        rm -f "$FILENAME" "migrated_$FILENAME" "baseline_$FILENAME" 2>/dev/null || true
+    fi
+}
+trap cleanup_all EXIT INT TERM
+
 # ==================== PARAMETERS & DEFAULTS ====================
 # Flexible Syntax Detection:
 #   1. Custom file only          -> sudo ./lftp-migration-test.sh my_experiment
@@ -323,10 +342,11 @@ END_BASELINE=$(date +%s.%N)
 TOTAL_BASELINE=$(echo "$END_BASELINE - $START_BASELINE" | bc)
 echo "✅ Baseline run finished!"
 
-# ==================== CLEANUP SERVER ====================
-echo "🧹 Tearing down background FTP server..."
+# ==================== CLEANUP SERVER & TEST FILES ====================
+echo "🧹 Tearing down background FTP server and cleaning temporary files..."
 kill $FTP_SERVER_PID 2>/dev/null || true
 pkill -f "pyftpdlib -p $PORT" || true
+rm -f "$FILENAME" "migrated_$FILENAME" "baseline_$FILENAME" 2>/dev/null || true
 
 # Calculate metrics
 OVERHEAD=$(echo "$TOTAL_MIGRATE - $TOTAL_BASELINE" | bc)
