@@ -4,7 +4,7 @@ import time
 import os
 import sys
 
-def run_batch(config_file_path, iterations_override=None, cooldown_override=None, results_override=None):
+def run_batch(config_file_path, iterations_override=None, cooldown_override=None, results_override=None, filesize_override=None):
     print(f"Config file: {config_file_path}")
     if not os.path.exists(config_file_path):
         print("Error: config file missing.")
@@ -66,11 +66,20 @@ def run_batch(config_file_path, iterations_override=None, cooldown_override=None
             loss = params["loss"]
             out_name = params["output_name"]
             
-            for i in range(1, iterations + 1):
-                print(f"   ➔ Control Group [{b_name}] | Iteration {i}/{iterations}...")
-                print(rate, lat, jit, loss, out_name, results_dir)
-                subprocess.run(["sudo", core_script, rate, lat, jit, loss, out_name, results_dir], check=True)
-                time.sleep(cooldown)
+            # Extract filesize or list of filesizes
+            if filesize_override:
+                fs_list = filesize_override
+            else:
+                fs_list = params.get("filesize") or params.get("filesizes") or g_settings.get("filesize", 100)
+            if not isinstance(fs_list, list):
+                fs_list = [fs_list]
+
+            for fs in fs_list:
+                print(f"\n   📁 Target File Size: {fs}MB")
+                for i in range(1, iterations + 1):
+                    print(f"   ➔ Control Group [{b_name}] | File Size: {fs}MB | Iteration {i}/{iterations}...")
+                    subprocess.run(["sudo", core_script, rate, lat, jit, loss, out_name, results_dir, str(fs)], check=True)
+                    time.sleep(cooldown)
 
 
     # 1. Processing Parametric Sweeps
@@ -79,6 +88,13 @@ def run_batch(config_file_path, iterations_override=None, cooldown_override=None
             print(f"\nLaunching Sweep Strategy: {sweep_name}")
             rate = params["rate"]
             
+            if filesize_override:
+                fs_list = filesize_override
+            else:
+                fs_list = params.get("filesize") or params.get("filesizes") or g_settings.get("filesize", 100)
+            if not isinstance(fs_list, list):
+                fs_list = [fs_list]
+
             if sweep_name == "latency_sweep":
                 var_list = [(v, params["jitter"], params["loss"]) for v in params["latency_values"]]
             elif sweep_name == "loss_sweep":
@@ -86,12 +102,14 @@ def run_batch(config_file_path, iterations_override=None, cooldown_override=None
             elif sweep_name == "jitter_sweep":
                 var_list = [(params["latency"], v, params["loss"]) for v in params["jitter_values"]]
                 
-            for lat, jit, loss in var_list:
-                profile_name = f"sweep_{sweep_name}_{lat}_{jit}_{loss}".replace('%','').replace('.','')
-                for i in range(1, iterations + 1):
-                    print(f"   ➔ Iteration {i}/{iterations} for Config [Rate: {rate} | Latency: {lat} | Jitter: {jit} | Loss: {loss}]")
-                    subprocess.run(["sudo", core_script, rate, lat, jit, loss, profile_name, results_dir], check=True)
-                    time.sleep(cooldown)
+            for fs in fs_list:
+                print(f"\n   📁 Sweep File Size: {fs}MB")
+                for lat, jit, loss in var_list:
+                    profile_name = f"sweep_{sweep_name}_{lat}_{jit}_{loss}".replace('%','').replace('.','')
+                    for i in range(1, iterations + 1):
+                        print(f"   ➔ Iteration {i}/{iterations} for Config [Rate: {rate} | Latency: {lat} | Jitter: {jit} | Loss: {loss} | FileSize: {fs}MB]")
+                        subprocess.run(["sudo", core_script, rate, lat, jit, loss, profile_name, results_dir, str(fs)], check=True)
+                        time.sleep(cooldown)
 
     # 2. Processing Scenario Profiles
     if "scenario_profiles" in config:
@@ -103,10 +121,19 @@ def run_batch(config_file_path, iterations_override=None, cooldown_override=None
             jit = scenario["jitter"]
             loss = scenario["loss"]
             
-            for i in range(1, iterations + 1):
-                print(f"   ➔ Scenario {name} | Iteration {i}/{iterations}...")
-                subprocess.run(["sudo", core_script, rate, lat, jit, loss, name, results_dir], check=True)
-                time.sleep(cooldown)
+            if filesize_override:
+                fs_list = filesize_override
+            else:
+                fs_list = scenario.get("filesize") or scenario.get("filesizes") or g_settings.get("filesize", 100)
+            if not isinstance(fs_list, list):
+                fs_list = [fs_list]
+
+            for fs in fs_list:
+                print(f"\n   📁 Scenario Profile: {name} | File Size: {fs}MB")
+                for i in range(1, iterations + 1):
+                    print(f"   ➔ Scenario {name} | File Size: {fs}MB | Iteration {i}/{iterations}...")
+                    subprocess.run(["sudo", core_script, rate, lat, jit, loss, name, results_dir, str(fs)], check=True)
+                    time.sleep(cooldown)
                 
     print("\nStructural Matrix Testing Suite Completed successfully!")
 
@@ -115,9 +142,10 @@ if __name__ == '__main__':
     # Second parameter (optional): iterations per config
     # Third parameter (optional): cooldown seconds
     # Fourth parameter (optional): results directory override
+    # Fifth parameter (optional): filesize override in MB (e.g. 50)
 
     if len(sys.argv) < 2:
-        print("Usage: python3 batch_runner.py <config_file> [iterations] [cooldown] [results_dir]")
+        print("Usage: python3 batch_runner.py <config_file> [iterations] [cooldown] [results_dir] [filesize]")
         sys.exit(1)
         
     config_file = sys.argv[1]
@@ -127,6 +155,7 @@ if __name__ == '__main__':
 
     iterations_override = int(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[2].isdigit() else None
     cooldown_override = float(sys.argv[3]) if len(sys.argv) > 3 else None
-    results_override = sys.argv[4] if len(sys.argv) > 4 else None
+    results_override = sys.argv[4] if len(sys.argv) > 4 and sys.argv[4] != "" else None
+    filesize_override = [int(sys.argv[5])] if len(sys.argv) > 5 and sys.argv[5].isdigit() else None
         
-    run_batch(config_file, iterations_override=iterations_override, cooldown_override=cooldown_override, results_override=results_override)
+    run_batch(config_file, iterations_override=iterations_override, cooldown_override=cooldown_override, results_override=results_override, filesize_override=filesize_override)

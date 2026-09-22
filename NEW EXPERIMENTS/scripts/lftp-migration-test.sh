@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # ==================== PARAMETERS & DEFAULTS ====================
 # Flexible Syntax Detection:
 #   1. Custom file only          -> sudo ./lftp-migration-test.sh my_experiment
-#   2. Full parameters           -> sudo ./lftp-migration-test.sh 30mbit 20ms 5ms 1% my_experiment
+#   2. Full parameters           -> sudo ./lftp-migration-test.sh 30mbit 20ms 5ms 1% my_experiment [output_dir] [filesize_mb]
 
 if [[ -n "$1" && ! "$1" =~ (mbit|kbit|bps|gbit|[0-9]+$) ]]; then
     # Auto-detect: First argument is a name, not a network speed!
@@ -16,7 +16,13 @@ if [[ -n "$1" && ! "$1" =~ (mbit|kbit|bps|gbit|[0-9]+$) ]]; then
     LATENCY=""
     JITTER=""
     LOSS=""
-    OUTPUT_DIR=${2:-${RESULTS_DIR:-${OUTPUT_DIR:-"./results/raw"}}}
+    if [[ "$2" =~ ^[0-9]+(MB|mb|m|M)?$ ]]; then
+        FILE_SIZE_MB=$2
+        OUTPUT_DIR=${3:-${RESULTS_DIR:-${OUTPUT_DIR:-"./results/raw"}}}
+    else
+        OUTPUT_DIR=${2:-${RESULTS_DIR:-${OUTPUT_DIR:-"./results/raw"}}}
+        FILE_SIZE_MB=${3:-${FILESIZE:-100}}
+    fi
 else
     # Standard positional assignment
     RATE=${1:-"50mbit"}
@@ -24,15 +30,24 @@ else
     JITTER=${3:-""}
     LOSS=${4:-""}
     BASE_OUT_NAME=${5:-"migration_results"}
-    OUTPUT_DIR=${6:-${RESULTS_DIR:-${OUTPUT_DIR:-"./results/raw"}}}
+    if [[ "$6" =~ ^[0-9]+(MB|mb|m|M)?$ ]]; then
+        FILE_SIZE_MB=$6
+        OUTPUT_DIR=${7:-${RESULTS_DIR:-${OUTPUT_DIR:-"./results/raw"}}}
+    else
+        OUTPUT_DIR=${6:-${RESULTS_DIR:-${OUTPUT_DIR:-"./results/raw"}}}
+        FILE_SIZE_MB=${7:-${FILESIZE:-100}}
+    fi
 fi
+
+# Clean and normalize FILE_SIZE_MB to pure integer
+FILE_SIZE_MB="${FILE_SIZE_MB//[^0-9]/}"
+FILE_SIZE_MB=${FILE_SIZE_MB:-100}
 
 # ==================== CONFIGURATION ====================
 NS_LEFT="left-ns"
 NS_RIGHT="right-ns"
 PORT="2121" 
-FILENAME="testfile.bin"
-FILE_SIZE_MB=100
+FILENAME="testfile_${FILE_SIZE_MB}MB.bin"
 
 # NEW REALISTIC IP MAPPINGS (Two entirely separate subnets)
 IP_LEFT_1="10.0.1.1"
@@ -43,8 +58,16 @@ IP_RIGHT_2="10.0.2.2"  # Target Server IP for Path 2
 
 # OUTPUT DATA CONFIGURATION
 OUTPUT_DIR="${OUTPUT_DIR:-./results/raw}"
-CSV_FILE="${OUTPUT_DIR}/${BASE_OUT_NAME}.csv"
-JSON_FILE="${OUTPUT_DIR}/${BASE_OUT_NAME}.json"
+
+# Incorporate filesize in result filenames if not already present
+if [[ "$BASE_OUT_NAME" =~ _[0-9]+(MB|mb|M|m)$ ]]; then
+    RESULT_PREFIX="${BASE_OUT_NAME}"
+else
+    RESULT_PREFIX="${BASE_OUT_NAME}_${FILE_SIZE_MB}MB"
+fi
+
+CSV_FILE="${OUTPUT_DIR}/${RESULT_PREFIX}.csv"
+CWND_FILE="${OUTPUT_DIR}/real_kernel_cwnd_${RESULT_PREFIX}.csv"
 
 mkdir -p "$OUTPUT_DIR"
 
@@ -59,7 +82,9 @@ echo "   • Throttling Rate : $RATE"
 echo "   • Network Latency : ${LATENCY:-0ms}"
 echo "   • Latency Jitter  : ${JITTER:-0ms}"
 echo "   • Packet Loss     : ${LOSS:-0%}"
-echo "   • Output Files    : ${CSV_FILE} and .json"
+echo "   • File Size       : ${FILE_SIZE_MB}MB"
+echo "   • Output File     : ${CSV_FILE}"
+echo "   • CWND Trace File : ${CWND_FILE}"
 echo ""
 
 if ! command -v lftp &> /dev/null; then
@@ -73,9 +98,14 @@ if ! python3 -m pyftpdlib --help &> /dev/null; then
     pip3 install pyftpdlib
 fi
 
-if [ ! -f "$FILENAME" ]; then
-    echo " Creating a ${FILE_SIZE_MB}MB dummy file for testing..."
-    dd if=/dev/urandom of="$FILENAME" bs=1M count=$FILE_SIZE_MB 2>/dev/null
+EXPECTED_BYTES=$((FILE_SIZE_MB * 1024 * 1024))
+if [ ! -f "$FILENAME" ] || [ $(stat -c%s "$FILENAME" 2>/dev/null || echo 0) -ne "$EXPECTED_BYTES" ]; then
+    if [ "$FILE_SIZE_MB" -eq 100 ] && [ -f "testfile.bin" ] && [ $(stat -c%s "testfile.bin" 2>/dev/null || echo 0) -eq "$EXPECTED_BYTES" ]; then
+        cp -f "testfile.bin" "$FILENAME" 2>/dev/null || ln -sf "testfile.bin" "$FILENAME"
+    else
+        echo " Creating a ${FILE_SIZE_MB}MB dummy file ($FILENAME) for testing..."
+        dd if=/dev/urandom of="$FILENAME" bs=1M count=$FILE_SIZE_MB 2>/dev/null
+    fi
 fi
 
 FILE_SIZE_BYTES=$(stat -c%s "$FILENAME")
@@ -204,7 +234,6 @@ ip -n $NS_RIGHT link set veth-right2 down
 START_MIGRATE=$(date +%s.%N)
 
 # Start background congestion window telemetry (right-ns sender side)
-CWND_FILE="${OUTPUT_DIR}/real_kernel_cwnd.csv"
 SESSION_LABEL="Migration" "$SCRIPT_DIR/cwnd_logger.sh" "$CWND_FILE" 0.02 &
 CWND_LOGGER_PID=$!
 
@@ -308,35 +337,17 @@ D_LATENCY=${LATENCY:-"0ms"}
 D_JITTER=${JITTER:-"0ms"}
 D_LOSS=${LOSS:-"0%"}
 
-# ==================== FILE LOGGING (CSV & JSON) ====================
+# ==================== FILE LOGGING (CSV) ====================
 if [ ! -f "$CSV_FILE" ]; then
     echo "timestamp,configured_rate,configured_latency,configured_jitter,configured_loss,file_size_mb,baseline_time_sec,migration_time_sec,overhead_sec" > "$CSV_FILE"
 fi
 echo "${TIMESTAMP},${RATE},${D_LATENCY},${D_JITTER},${D_LOSS},${FILE_SIZE_MB},${TOTAL_BASELINE},${TOTAL_MIGRATE},${OVERHEAD}" >> "$CSV_FILE"
 
-cat <<EOF > "$JSON_FILE"
-{
-  "timestamp": "${TIMESTAMP}",
-  "link_configuration": {
-    "rate": "${RATE}",
-    "latency": "${D_LATENCY}",
-    "jitter": "${D_JITTER}",
-    "loss": "${D_LOSS}"
-  },
-  "file_size_mb": ${FILE_SIZE_MB},
-  "metrics": {
-    "baseline_time_seconds": ${TOTAL_BASELINE},
-    "migration_time_seconds": ${TOTAL_MIGRATE},
-    "total_overhead_seconds": ${OVERHEAD}
-  }
-}
-EOF
-
 chmod -R 777 "$OUTPUT_DIR"
 
 # ==================== FINAL TERMINAL REPORT ====================
 echo -e "\n============================================="
-echo "📊 EXPERIMENT RESULTS ($RATE | Latency: $D_LATENCY | Jitter: $D_JITTER | Loss: $D_LOSS)"
+echo "📊 EXPERIMENT RESULTS ($RATE | Latency: $D_LATENCY | Jitter: $D_JITTER | Loss: $D_LOSS | FileSize: ${FILE_SIZE_MB}MB)"
 echo "============================================="
 echo -e "Uninterrupted Baseline Time : \033[1;32m${TOTAL_BASELINE} seconds\033[0m"
 echo -e "Stopped & Migrated Path Time: \033[1;31m${TOTAL_MIGRATE} seconds\033[0m"
@@ -344,5 +355,5 @@ echo -e "Total Migration Overhead    : \033[1;33m${OVERHEAD} seconds\033[0m"
 echo "============================================="
 echo "📝 Data recorded inside ${OUTPUT_DIR}/"
 echo "   ➡️  $CSV_FILE (Appended)"
-echo "   ➡️  $JSON_FILE (Latest Run)"
+echo "   ➡️  $CWND_FILE (CWND Telemetry)"
 echo "============================================="

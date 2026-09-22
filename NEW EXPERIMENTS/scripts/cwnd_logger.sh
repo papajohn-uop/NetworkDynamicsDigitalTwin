@@ -1,9 +1,9 @@
 #!/bin/bash
 # cwnd_logger.sh - High-precision sender-side TCP cwnd logger
 
-OUTPUT_FILE=${1:-${CWND_FILE:-${RESULTS_DIR:+"$RESULTS_DIR/real_kernel_cwnd.csv"}}}
-OUTPUT_FILE=${OUTPUT_FILE:-${OUTPUT_DIR:+"$OUTPUT_DIR/real_kernel_cwnd.csv"}}
-OUTPUT_FILE=${OUTPUT_FILE:-"./results/raw/real_kernel_cwnd.csv"}
+OUTPUT_FILE=${1:-${CWND_FILE:-${RESULTS_DIR:+"$RESULTS_DIR/real_kernel_cwnd_${FILE_SIZE_MB:-100}MB.csv"}}}
+OUTPUT_FILE=${OUTPUT_FILE:-${OUTPUT_DIR:+"$OUTPUT_DIR/real_kernel_cwnd_${FILE_SIZE_MB:-100}MB.csv"}}
+OUTPUT_FILE=${OUTPUT_FILE:-"./results/raw/real_kernel_cwnd_${FILE_SIZE_MB:-100}MB.csv"}
 POLL_INTERVAL=${2:-"0.02"}
 SESSION_LABEL=${SESSION_LABEL:-"Migration"}
 
