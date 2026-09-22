@@ -1,7 +1,9 @@
 #!/bin/bash
 # cwnd_logger.sh - High-precision sender-side TCP cwnd logger
 
-OUTPUT_FILE=${1:-"./results/raw/real_kernel_cwnd.csv"}
+OUTPUT_FILE=${1:-${CWND_FILE:-${RESULTS_DIR:+"$RESULTS_DIR/real_kernel_cwnd.csv"}}}
+OUTPUT_FILE=${OUTPUT_FILE:-${OUTPUT_DIR:+"$OUTPUT_DIR/real_kernel_cwnd.csv"}}
+OUTPUT_FILE=${OUTPUT_FILE:-"./results/raw/real_kernel_cwnd.csv"}
 POLL_INTERVAL=${2:-"0.02"}
 SESSION_LABEL=${SESSION_LABEL:-"Migration"}
 
@@ -13,10 +15,10 @@ if [ ! -s "$OUTPUT_FILE" ]; then
     echo "timestamp,session_type,cwnd_segments" > "$OUTPUT_FILE"
 fi
 
-echo "🚀 Starting TCP cwnd logging in right-ns (sender side)..."
-echo "📊 Output file: $OUTPUT_FILE"
-echo "⏱️  Polling interval: ${POLL_INTERVAL}s"
-echo "🏷️  Session label mode: $SESSION_LABEL"
+echo "Starting TCP cwnd logging in right-ns (sender side)..."
+echo "Output file: $OUTPUT_FILE"
+echo "Polling interval: ${POLL_INTERVAL}s"
+echo "Session label mode: $SESSION_LABEL"
 
 # Handle shutdown signals gracefully
 cleanup() {

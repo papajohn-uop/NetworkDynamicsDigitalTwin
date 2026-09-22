@@ -2,6 +2,8 @@
 # lftp-migration-test.sh
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # ==================== PARAMETERS & DEFAULTS ====================
 # Flexible Syntax Detection:
 #   1. Custom file only          -> sudo ./lftp-migration-test.sh my_experiment
@@ -14,6 +16,7 @@ if [[ -n "$1" && ! "$1" =~ (mbit|kbit|bps|gbit|[0-9]+$) ]]; then
     LATENCY=""
     JITTER=""
     LOSS=""
+    OUTPUT_DIR=${2:-${RESULTS_DIR:-${OUTPUT_DIR:-"./results/raw"}}}
 else
     # Standard positional assignment
     RATE=${1:-"50mbit"}
@@ -21,6 +24,7 @@ else
     JITTER=${3:-""}
     LOSS=${4:-""}
     BASE_OUT_NAME=${5:-"migration_results"}
+    OUTPUT_DIR=${6:-${RESULTS_DIR:-${OUTPUT_DIR:-"./results/raw"}}}
 fi
 
 # ==================== CONFIGURATION ====================
@@ -38,7 +42,7 @@ IP_LEFT_2="10.0.2.1"
 IP_RIGHT_2="10.0.2.2"  # Target Server IP for Path 2
 
 # OUTPUT DATA CONFIGURATION
-OUTPUT_DIR="./results/raw"
+OUTPUT_DIR="${OUTPUT_DIR:-./results/raw}"
 CSV_FILE="${OUTPUT_DIR}/${BASE_OUT_NAME}.csv"
 JSON_FILE="${OUTPUT_DIR}/${BASE_OUT_NAME}.json"
 
@@ -46,11 +50,11 @@ mkdir -p "$OUTPUT_DIR"
 
 # ==================== PRE-FLIGHT CHECKS ====================
 if [ "$EUID" -ne 0 ]; then
-    echo "❌ This script must be run as root (sudo)."
+    echo " This script must be run as root (sudo)."
     exit 1
 fi
 
-echo "⚙️  Configuring Link Parameters:"
+echo "  Configuring Link Parameters:"
 echo "   • Throttling Rate : $RATE"
 echo "   • Network Latency : ${LATENCY:-0ms}"
 echo "   • Latency Jitter  : ${JITTER:-0ms}"
@@ -59,18 +63,18 @@ echo "   • Output Files    : ${CSV_FILE} and .json"
 echo ""
 
 if ! command -v lftp &> /dev/null; then
-    echo "📦 Installing lftp..."
+    echo "Installing lftp..."
     apt-get update && apt-get install -y lftp
 fi
 
 if ! python3 -m pyftpdlib --help &> /dev/null; then
-    echo "📦 pyftpdlib not found. Installing via pip3..."
+    echo "pyftpdlib not found. Installing via pip3..."
     apt-get update && apt-get install -y python3-pip
     pip3 install pyftpdlib
 fi
 
 if [ ! -f "$FILENAME" ]; then
-    echo "📦 Creating a ${FILE_SIZE_MB}MB dummy file for testing..."
+    echo " Creating a ${FILE_SIZE_MB}MB dummy file for testing..."
     dd if=/dev/urandom of="$FILENAME" bs=1M count=$FILE_SIZE_MB 2>/dev/null
 fi
 
@@ -78,19 +82,19 @@ FILE_SIZE_BYTES=$(stat -c%s "$FILENAME")
 TARGET_HALF_BYTES=$((FILE_SIZE_BYTES / 2))
 
 # ==================== ENV CLEANUP & SETUP ====================
-echo "🧹 Cleaning old network namespaces and active FTP servers..."
+echo " Cleaning old network namespaces and active FTP servers..."
 pkill -f "pyftpdlib -p $PORT" || true
 ip netns del $NS_LEFT 2>/dev/null || true
 ip netns del $NS_RIGHT 2>/dev/null || true
 rm -f "migrated_$FILENAME" "baseline_$FILENAME"
 
-echo "🌐 Creating isolated namespaces..."
+echo " Creating isolated namespaces..."
 ip netns add $NS_LEFT
 ip netns add $NS_RIGHT
 ip -n $NS_LEFT link set lo up
 ip -n $NS_RIGHT link set lo up
 
-echo "🔗 Provisioning dual veth paths..."
+echo " Provisioning dual veth paths..."
 ip link add veth-left1 type veth peer name veth-right1
 ip link add veth-left2 type veth peer name veth-right2
 
@@ -107,7 +111,7 @@ ip -n $NS_RIGHT addr add ${IP_RIGHT_2}/24 dev veth-right2
 
 
 # ==================== ENHANCED CACHE FLUSHING ====================
-echo "🧹 Erasing kernel TCP metrics caching for clean iterations..."
+echo " Erasing kernel TCP metrics caching for clean iterations..."
 # 1. Disable historical TCP saving inside the test environments
 ip netns exec $NS_LEFT sysctl -w net.ipv4.tcp_no_metrics_save=1 > /dev/null 2>&1 || true
 ip netns exec $NS_RIGHT sysctl -w net.ipv4.tcp_no_metrics_save=1 > /dev/null 2>&1 || true
@@ -118,12 +122,12 @@ ip netns exec $NS_RIGHT ip route flush cache || true
 
 
 # ==================== BITRATE & EMULATION LIMITS ====================
-echo "🛠️  Applying Traffic Control (tc) settings..."
+echo " Applying Traffic Control (tc) settings..."
 
 limit_bandwidth() {
     local ns=$1 dev=$2
     
-    echo "👉 Configuring $ns:$dev..."
+    echo "Configuring $ns:$dev..."
     
     # Reset root qdisc safely
     ip netns exec $ns tc qdisc del dev $dev root 2>/dev/null || true
@@ -174,14 +178,14 @@ limit_bandwidth $NS_RIGHT veth-right1
 limit_bandwidth $NS_RIGHT veth-right2
 
 # ==================== START FTP SERVER ====================
-echo -e "\n🔒 Spawning isolated Python FTP daemon inside $NS_RIGHT..."
+echo -e "\n Spawning isolated Python FTP daemon inside $NS_RIGHT..."
 # CRITICAL FIX: Binding to 0.0.0.0 tells pyftpdlib to map sockets across both subnets (10.0.1.2 and 10.0.2.2) simultaneously
 ip netns exec $NS_RIGHT python3 -m pyftpdlib -i 0.0.0.0 -p $PORT -w -d . > /dev/null 2>&1 &
 FTP_SERVER_PID=$!
 sleep 1.5
 
 if ! ps -p $FTP_SERVER_PID > /dev/null; then
-    echo "❌ Error: Failed to start pyftpdlib server inside namespace."
+    echo " Error: Failed to start pyftpdlib server inside namespace."
     exit 1
 fi
 
@@ -189,7 +193,7 @@ fi
 # EXPERIMENT 1: THE MIGRATION RUN (Stop at 50%, Switch IP, Resume)
 # ============================================================
 echo -e "\n============================================="
-echo "🏃‍♂️ RUN 1: STARTING REALISTIC IP MIGRATION TEST (Subnet 1 -> Subnet 2)"
+echo " RUN 1: STARTING REALISTIC IP MIGRATION TEST (Subnet 1 -> Subnet 2)"
 echo -e "=============================================\n"
 
 ip -n $NS_LEFT link set veth-left1 up
@@ -201,7 +205,7 @@ START_MIGRATE=$(date +%s.%N)
 
 # Start background congestion window telemetry (right-ns sender side)
 CWND_FILE="${OUTPUT_DIR}/real_kernel_cwnd.csv"
-SESSION_LABEL="Migration" ./cwnd_logger.sh "$CWND_FILE" 0.02 &
+SESSION_LABEL="Migration" "$SCRIPT_DIR/cwnd_logger.sh" "$CWND_FILE" 0.02 &
 CWND_LOGGER_PID=$!
 
 # Initialize data connection over Subnet 1 Target
@@ -215,7 +219,7 @@ LFTP_PID=$!
 echo "⏳ Monitoring download progress... Will halt at 50% (~$((TARGET_HALF_BYTES / 1024 / 1024)) MB)"
 while true; do
     if ! ps -p $LFTP_PID > /dev/null; then
-        echo "❌ Error: lftp process died before reaching 50% threshold."
+        echo " Error: lftp process died before reaching 50% threshold."
         kill $CWND_LOGGER_PID 2>/dev/null || true
         wait $CWND_LOGGER_PID 2>/dev/null || true
         exit 1
@@ -223,7 +227,7 @@ while true; do
     if [ -f "migrated_$FILENAME" ]; then
         CURRENT_SIZE=$(stat -c%s "migrated_$FILENAME" 2>/dev/null || echo 0)
         if [ "$CURRENT_SIZE" -ge "$TARGET_HALF_BYTES" ]; then
-            echo "🎯 Hit 50% ($((CURRENT_SIZE / 1024 / 1024)) MB downloaded). Interrupting Subnet 1 Link..."
+            echo " Hit 50% ($((CURRENT_SIZE / 1024 / 1024)) MB downloaded). Interrupting Subnet 1 Link..."
             kill $LFTP_PID 2>/dev/null || true
             wait $LFTP_PID 2>/dev/null || true
             break
@@ -232,7 +236,7 @@ while true; do
     sleep 0.05
 done
 
-echo "🔌 HARD FAILOVER: Destroying Subnet 1 Link ❌ -> Activating Subnet 2 Link 🚀"
+echo "🔌 HARD FAILOVER: Destroying Subnet 1 Link  -> Activating Subnet 2 Link "
 ip -n $NS_LEFT link set veth-left1 down
 ip -n $NS_RIGHT link set veth-right1 down
 
@@ -240,7 +244,7 @@ ip -n $NS_LEFT link set veth-left2 up
 ip -n $NS_RIGHT link set veth-right2 up
 # sleep 0.5 # Allow virtual interfaces to settle
 
-echo "🔄 Resuming LFTP targeting Subnet 2 Server IP (${IP_RIGHT_2})..."
+echo " Resuming LFTP targeting Subnet 2 Server IP (${IP_RIGHT_2})..."
 # Re-open session targeting the Subnet 2 server IP with continuation flag
 ip netns exec $NS_LEFT lftp -c "
   set ftp:passive-mode true;
@@ -254,13 +258,13 @@ wait $CWND_LOGGER_PID 2>/dev/null || true
 
 END_MIGRATE=$(date +%s.%N)
 TOTAL_MIGRATE=$(echo "$END_MIGRATE - $START_MIGRATE" | bc)
-echo "✅ Migration run finished!"
+echo "Migration run finished!"
 
 # ============================================================
 # EXPERIMENT 2: THE BASELINE RUN (Uninterrupted Path 1)
 # ============================================================
 echo -e "\n============================================="
-echo "🏃‍♂️ RUN 2: STARTING BASELINE TEST (Uninterrupted Subnet 1)"
+echo " RUN 2: STARTING BASELINE TEST (Uninterrupted Subnet 1)"
 echo -e "=============================================\n"
 
 ip -n $NS_LEFT link set veth-left2 down
@@ -272,7 +276,7 @@ sleep 0.5
 START_BASELINE=$(date +%s.%N)
 
 # Start background congestion window telemetry (right-ns sender side)
-SESSION_LABEL="Baseline" ./cwnd_logger.sh "$CWND_FILE" 0.02 &
+SESSION_LABEL="Baseline" "$SCRIPT_DIR/cwnd_logger.sh" "$CWND_FILE" 0.02 &
 CWND_LOGGER_PID=$!
 
 # Baseline executes uninterrupted exclusively on Subnet 1
