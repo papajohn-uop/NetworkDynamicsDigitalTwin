@@ -22,8 +22,6 @@ Thumbs.db
 # Generated experiment artifacts
 *.bin
 *.csv
-*.json
 *.png
 
-NEW EXPERIMENTS/scripts/batch_runner.py
-NEW EXPERIMENTS/scripts/lftp-migration-test.sh
+results/*

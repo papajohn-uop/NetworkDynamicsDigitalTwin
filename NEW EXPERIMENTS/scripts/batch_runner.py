@@ -92,7 +92,7 @@ def run_batch(config_file_path, iterations_override=None, cooldown_override=None
                 fs_list = [fs_list]
 
             for fs in fs_list:
-                print(f"\n   📁 Target File Size: {fs}MB (Mode: {cwnd_mode})")
+                print(f"\n   Target File Size: {fs}MB (Mode: {cwnd_mode})")
                 for i in range(1, iterations + 1):
                     print(f"   ➔ Control Group [{b_name}] | Mode: {cwnd_mode} | File Size: {fs}MB | Iteration {i}/{iterations}...")
                     env = os.environ.copy()
