@@ -38,9 +38,11 @@ if [[ -n "$1" && ! "$1" =~ (mbit|kbit|bps|gbit|[0-9]+$) ]]; then
     if [[ "$2" =~ ^[0-9]+(MB|mb|m|M)?$ ]]; then
         FILE_SIZE_MB=$2
         OUTPUT_DIR=${3:-${RESULTS_DIR:-${OUTPUT_DIR:-"./results/raw"}}}
+        CWND_MODE=${4:-${CWND_MODE:-"cubic"}}
     else
         OUTPUT_DIR=${2:-${RESULTS_DIR:-${OUTPUT_DIR:-"./results/raw"}}}
         FILE_SIZE_MB=${3:-${FILESIZE:-100}}
+        CWND_MODE=${4:-${CWND_MODE:-"cubic"}}
     fi
 else
     # Standard positional assignment
@@ -52,15 +54,24 @@ else
     if [[ "$6" =~ ^[0-9]+(MB|mb|m|M)?$ ]]; then
         FILE_SIZE_MB=$6
         OUTPUT_DIR=${7:-${RESULTS_DIR:-${OUTPUT_DIR:-"./results/raw"}}}
+        CWND_MODE=${8:-${CWND_MODE:-"cubic"}}
     else
         OUTPUT_DIR=${6:-${RESULTS_DIR:-${OUTPUT_DIR:-"./results/raw"}}}
         FILE_SIZE_MB=${7:-${FILESIZE:-100}}
+        CWND_MODE=${8:-${CWND_MODE:-"cubic"}}
     fi
 fi
 
 # Clean and normalize FILE_SIZE_MB to pure integer
 FILE_SIZE_MB="${FILE_SIZE_MB//[^0-9]/}"
 FILE_SIZE_MB=${FILE_SIZE_MB:-100}
+
+# Normalize and validate CWND_MODE (reno or cubic, default cubic)
+CWND_MODE=$(echo "${CWND_MODE:-cubic}" | tr '[:upper:]' '[:lower:]')
+if [[ "$CWND_MODE" != "reno" && "$CWND_MODE" != "cubic" ]]; then
+    echo "⚠️ Warning: Unsupported cwnd mode '$CWND_MODE'. Falling back to 'cubic'."
+    CWND_MODE="cubic"
+fi
 
 # ==================== CONFIGURATION ====================
 NS_LEFT="left-ns"
@@ -102,6 +113,7 @@ echo "   • Network Latency : ${LATENCY:-0ms}"
 echo "   • Latency Jitter  : ${JITTER:-0ms}"
 echo "   • Packet Loss     : ${LOSS:-0%}"
 echo "   • File Size       : ${FILE_SIZE_MB}MB"
+echo "   • CWND Mode (CCA) : ${CWND_MODE}"
 echo "   • Output File     : ${CSV_FILE}"
 echo "   • CWND Trace File : ${CWND_FILE}"
 echo ""
@@ -158,6 +170,20 @@ ip -n $NS_LEFT addr add ${IP_LEFT_2}/24 dev veth-left2
 ip -n $NS_RIGHT addr add ${IP_RIGHT_1}/24 dev veth-right1
 ip -n $NS_RIGHT addr add ${IP_RIGHT_2}/24 dev veth-right2
 
+# ==================== CONGESTION CONTROL ALGORITHM ====================
+echo " Setting TCP congestion control mode to '$CWND_MODE' on namespaces and veth routes..."
+ip netns exec $NS_LEFT sysctl -w net.ipv4.tcp_congestion_control=$CWND_MODE > /dev/null 2>&1 || true
+ip netns exec $NS_RIGHT sysctl -w net.ipv4.tcp_congestion_control=$CWND_MODE > /dev/null 2>&1 || true
+
+# Apply congestion control algorithm directly to the subnet routes on each veth pair
+ip -n $NS_LEFT route change 10.0.1.0/24 dev veth-left1 congctl $CWND_MODE 2>/dev/null || \
+  ip -n $NS_LEFT route replace 10.0.1.0/24 dev veth-left1 congctl $CWND_MODE 2>/dev/null || true
+ip -n $NS_LEFT route change 10.0.2.0/24 dev veth-left2 congctl $CWND_MODE 2>/dev/null || \
+  ip -n $NS_LEFT route replace 10.0.2.0/24 dev veth-left2 congctl $CWND_MODE 2>/dev/null || true
+ip -n $NS_RIGHT route change 10.0.1.0/24 dev veth-right1 congctl $CWND_MODE 2>/dev/null || \
+  ip -n $NS_RIGHT route replace 10.0.1.0/24 dev veth-right1 congctl $CWND_MODE 2>/dev/null || true
+ip -n $NS_RIGHT route change 10.0.2.0/24 dev veth-right2 congctl $CWND_MODE 2>/dev/null || \
+  ip -n $NS_RIGHT route replace 10.0.2.0/24 dev veth-right2 congctl $CWND_MODE 2>/dev/null || true
 
 # ==================== ENHANCED CACHE FLUSHING ====================
 echo " Erasing kernel TCP metrics caching for clean iterations..."
@@ -359,15 +385,21 @@ D_LOSS=${LOSS:-"0%"}
 
 # ==================== FILE LOGGING (CSV) ====================
 if [ ! -f "$CSV_FILE" ]; then
-    echo "timestamp,configured_rate,configured_latency,configured_jitter,configured_loss,file_size_mb,baseline_time_sec,migration_time_sec,overhead_sec" > "$CSV_FILE"
+    echo "timestamp,configured_rate,configured_latency,configured_jitter,configured_loss,cwnd_mode,file_size_mb,baseline_time_sec,migration_time_sec,overhead_sec" > "$CSV_FILE"
 fi
-echo "${TIMESTAMP},${RATE},${D_LATENCY},${D_JITTER},${D_LOSS},${FILE_SIZE_MB},${TOTAL_BASELINE},${TOTAL_MIGRATE},${OVERHEAD}" >> "$CSV_FILE"
+
+# Write record conforming to header columns
+if head -n 1 "$CSV_FILE" | grep -q "cwnd_mode"; then
+    echo "${TIMESTAMP},${RATE},${D_LATENCY},${D_JITTER},${D_LOSS},${CWND_MODE},${FILE_SIZE_MB},${TOTAL_BASELINE},${TOTAL_MIGRATE},${OVERHEAD}" >> "$CSV_FILE"
+else
+    echo "${TIMESTAMP},${RATE},${D_LATENCY},${D_JITTER},${D_LOSS},${FILE_SIZE_MB},${TOTAL_BASELINE},${TOTAL_MIGRATE},${OVERHEAD}" >> "$CSV_FILE"
+fi
 
 chmod -R 777 "$OUTPUT_DIR"
 
 # ==================== FINAL TERMINAL REPORT ====================
 echo -e "\n============================================="
-echo "📊 EXPERIMENT RESULTS ($RATE | Latency: $D_LATENCY | Jitter: $D_JITTER | Loss: $D_LOSS | FileSize: ${FILE_SIZE_MB}MB)"
+echo "📊 EXPERIMENT RESULTS ($RATE | Latency: $D_LATENCY | Jitter: $D_JITTER | Loss: $D_LOSS | Mode: $CWND_MODE | FileSize: ${FILE_SIZE_MB}MB)"
 echo "============================================="
 echo -e "Uninterrupted Baseline Time : \033[1;32m${TOTAL_BASELINE} seconds\033[0m"
 echo -e "Stopped & Migrated Path Time: \033[1;31m${TOTAL_MIGRATE} seconds\033[0m"
