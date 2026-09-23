@@ -1120,7 +1120,7 @@ def main():
             print_cubic_vs_reno_comparison_table(exp1_res, exp2_res)
             
             # 2. Save Consolidated Comparison CSV with all statistical metrics
-            save_cubic_vs_reno_csv(exp1_res, exp2_res, os.path.join(base_dir, "summary_cubic_vs_reno.csv"))
+            save_cubic_vs_reno_csv(exp1_res, exp2_res, os.path.join(analysis_dir, "summary_cubic_vs_reno.csv"))
             save_cubic_vs_reno_csv(exp1_res, exp2_res, os.path.join(analysis_dir, "full_statistical_profile_cubic_vs_reno.csv"))
             
             # 3. Save publication table results as CSV files
