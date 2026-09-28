@@ -18,7 +18,7 @@ def generic_sweep_analysis(file_path, parameter):
     if parameter not in ["latency", "loss", "jitter"]:
         raise ValueError("Invalid parameter. Must be 'latency', 'loss', or 'jitter'.")
     
-    files = get_all_csv_files(LATENCY_SWEEP_PATH)
+    files = get_all_csv_files(file_path)
     
     all_results = {}
     all_results_baseline = {}
