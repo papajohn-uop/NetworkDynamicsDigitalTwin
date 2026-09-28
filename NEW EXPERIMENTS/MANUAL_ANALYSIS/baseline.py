@@ -5,6 +5,7 @@ from csv_handler import (
     save_all_results_to_csv,
 )
 from analysis import analyse_single_csv_file
+from plotting import generate_all_plots
 import json
 #lets define some folders where we have the results
 
@@ -105,3 +106,9 @@ def baseline_analysis():
     save_stats_dict_to_csv(baseline_r, "reno_baseline.csv")
     save_stats_dict_to_csv(migrate_r, "reno_migrate.csv")
     save_stats_dict_to_csv(diff_r, "reno_diff.csv")
+
+    # Generate visualization figures comparing CUBIC and Reno
+    generate_all_plots(
+        cubic_results=[all_results, all_results_baseline, all_results_migrate, all_results_diff],
+        reno_results=[all_results_r, baseline_r, migrate_r, diff_r]
+    )
