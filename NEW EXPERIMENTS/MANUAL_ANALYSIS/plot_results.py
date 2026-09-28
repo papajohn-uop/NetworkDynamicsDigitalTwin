@@ -4,15 +4,15 @@ plot_results.py
 
 Standalone visualization script for experiment results.
 Reads statistical CSV tables from the ./RESULTS directory and generates
-high-resolution publication-quality plots.
+high-resolution publication-quality plots comparing TCP CUBIC and TCP Reno.
 
 Generated figures:
   1. plot_transfer_time.png       - Baseline: Completion time scaling (CUBIC vs Reno)
   2. plot_handover_overhead.png   - Baseline: Invariant handover overhead (Delta T)
   3. plot_relative_decay.png      - Baseline: Hyperbolic relative overhead penalty decay (rho)
-  4. plot_latency_sweep.png       - Latency Sweep: Completion time & overhead vs RTT latency
-  5. plot_loss_sweep.png          - Loss Sweep: Completion time & effective goodput vs packet loss
-  6. plot_jitter_sweep.png        - Jitter Sweep: Completion time & overhead vs delay jitter
+  4. plot_latency_sweep.png       - Latency Sweep: Completion time & overhead vs RTT latency (CUBIC vs Reno)
+  5. plot_loss_sweep.png          - Loss Sweep: Completion time & effective goodput vs packet loss (CUBIC vs Reno)
+  6. plot_jitter_sweep.png        - Jitter Sweep: Completion time & overhead vs delay jitter (CUBIC vs Reno)
 """
 
 import os
@@ -69,20 +69,21 @@ def parse_parameter_val(val_str):
     return float(clean) if clean else 0.0
 
 
-def load_sweep_series(results_dir, sweep_type):
+def load_sweep_series(results_dir, sweep_type, cca="cubic"):
     """
-    Finds and parses all 'cubic_{sweep_type}_*_all_results.csv' files in results_dir.
+    Finds and parses all '{cca}_{sweep_type}_*_all_results.csv' files in results_dir.
 
     Parameters:
         results_dir (str): Directory containing the CSV tables.
         sweep_type (str): 'latency', 'loss', or 'jitter'.
+        cca (str): 'cubic' or 'reno'.
 
     Returns:
         dict: Mapping file_size_mb (e.g., 100, 200) -> list of dicts:
               [{'param_str': '10ms', 'param_val': 10.0, 'metrics': {...}}, ...]
               sorted by param_val ascending.
     """
-    pattern = os.path.join(results_dir, f"cubic_{sweep_type}_*_all_results.csv")
+    pattern = os.path.join(results_dir, f"{cca}_{sweep_type}_*_all_results.csv")
     csv_files = glob.glob(pattern)
     if not csv_files:
         return {}
@@ -91,8 +92,7 @@ def load_sweep_series(results_dir, sweep_type):
 
     for filepath in csv_files:
         filename = os.path.basename(filepath)
-        # Match pattern: cubic_{sweep_type}_{param_str}_all_results.csv
-        prefix = f"cubic_{sweep_type}_"
+        prefix = f"{cca}_{sweep_type}_"
         suffix = "_all_results.csv"
         if not (filename.startswith(prefix) and filename.endswith(suffix)):
             continue
@@ -266,160 +266,207 @@ def plot_relative_decay(cubic_data, reno_data, output_file):
 
 
 # ==============================================================================
-# PARAMETRIC SWEEPS PLOTTING FUNCTIONS
+# PARAMETRIC SWEEPS PLOTTING FUNCTIONS (CUBIC vs RENO)
 # ==============================================================================
 
-def plot_latency_sweep(sweep_data, output_file):
+def plot_latency_sweep(cubic_data, reno_data, output_file):
     """
-    Plots Latency Sweep:
-    - Panel 1: Transfer Completion Time vs. One-Way Latency for 100 MB and 200 MB.
-    - Panel 2: Handover Overhead vs. One-Way Latency (Mean ± Std).
+    Plots Latency Sweep (CUBIC vs Reno):
+    - Panel 1: Completion Time vs. Network Latency for 100 MB and 200 MB.
+    - Panel 2: Handover Overhead (Delta T) vs. Network Latency.
     """
-    if not sweep_data:
+    if not cubic_data and not reno_data:
         print("Skipping plot_latency_sweep: No latency sweep data found.")
         return
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5.5), dpi=300)
-    colors = {100: "#1f77b4", 200: "#ff7f0e", 50: "#2ca02c"}
-    markers = {100: "o", 200: "s", 50: "^"}
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5.5), dpi=300)
 
-    for fs in sorted(sweep_data.keys()):
-        series = sweep_data[fs]
-        lats = [x["param_val"] for x in series]
-        b_means = [x["metrics"]["direct_mean"] for x in series]
-        m_means = [x["metrics"]["migrate_mean"] for x in series]
-        o_means = [x["metrics"]["diff_mean"] for x in series]
-        o_stds = [x["metrics"]["diff_std"] for x in series]
+    # Visual palettes
+    # CUBIC: Blue/Teal tones | Reno: Red/Crimson tones
+    colors_cubic = {100: "#1f77b4", 200: "#02818a"}
+    colors_reno = {100: "#d62728", 200: "#990000"}
+    markers_cubic = {100: "o", 200: "s"}
+    markers_reno = {100: "^", 200: "v"}
 
-        c = colors.get(fs, "#333333")
-        m = markers.get(fs, "o")
+    # Common payload sizes
+    all_sizes = sorted(set(list(cubic_data.keys()) + list(reno_data.keys() if reno_data else [])))
 
-        # Panel 1: Completion Time
-        ax1.plot(lats, b_means, f"-{m}", color=c, linewidth=2, label=f"Baseline ({fs} MB)")
-        ax1.plot(lats, m_means, f"--{m}", color=c, linewidth=2, alpha=0.7, label=f"Migration ({fs} MB)")
+    for fs in all_sizes:
+        # Plot CUBIC series
+        if cubic_data and fs in cubic_data:
+            series_c = cubic_data[fs]
+            lats_c = [x["param_val"] for x in series_c]
+            b_c = [x["metrics"]["direct_mean"] for x in series_c]
+            o_c = [x["metrics"]["diff_mean"] for x in series_c]
+            o_c_std = [x["metrics"]["diff_std"] for x in series_c]
 
-        # Panel 2: Overhead
-        ax2.errorbar(lats, o_means, yerr=o_stds, fmt=f"-{m}", color=c, linewidth=2, capsize=4, label=f"Overhead ({fs} MB)")
+            c_color = colors_cubic.get(fs, "#1f77b4")
+            m_c = markers_cubic.get(fs, "o")
 
-    ax1.set_title("Completion Time vs. Latency", fontsize=12, fontweight="bold")
+            ax1.plot(lats_c, b_c, f"-{m_c}", color=c_color, linewidth=2, label=f"CUBIC ({fs} MB)")
+            ax2.errorbar(lats_c, o_c, yerr=o_c_std, fmt=f"-{m_c}", color=c_color, linewidth=2, capsize=4, label=f"CUBIC ΔT ({fs} MB)")
+
+        # Plot Reno series
+        if reno_data and fs in reno_data:
+            series_r = reno_data[fs]
+            lats_r = [x["param_val"] for x in series_r]
+            b_r = [x["metrics"]["direct_mean"] for x in series_r]
+            o_r = [x["metrics"]["diff_mean"] for x in series_r]
+            o_r_std = [x["metrics"]["diff_std"] for x in series_r]
+
+            r_color = colors_reno.get(fs, "#d62728")
+            m_r = markers_reno.get(fs, "^")
+
+            ax1.plot(lats_r, b_r, f"--{m_r}", color=r_color, linewidth=2, label=f"Reno ({fs} MB)")
+            ax2.errorbar(lats_r, o_r, yerr=o_r_std, fmt=f"--{m_r}", color=r_color, linewidth=2, capsize=4, label=f"Reno ΔT ({fs} MB)")
+
+    ax1.set_title("Completion Time: CUBIC vs. Reno Scaling", fontsize=12, fontweight="bold")
     ax1.set_xlabel("One-Way Latency (ms)", fontsize=11, fontweight="semibold")
     ax1.set_ylabel("Completion Time (seconds)", fontsize=11, fontweight="semibold")
     ax1.grid(True, linestyle="--", alpha=0.6)
     ax1.legend(frameon=True, fontsize=9)
 
-    ax2.set_title("Handover Overhead vs. Latency", fontsize=12, fontweight="bold")
+    ax2.set_title("Handover Overhead Scaling with Latency", fontsize=12, fontweight="bold")
     ax2.set_xlabel("One-Way Latency (ms)", fontsize=11, fontweight="semibold")
     ax2.set_ylabel("Handover Overhead ΔT (seconds)", fontsize=11, fontweight="semibold")
     ax2.grid(True, linestyle="--", alpha=0.6)
     ax2.legend(frameon=True, fontsize=9)
 
-    plt.suptitle("Latency Sweep Impact on Migration Performance (TCP CUBIC)", fontsize=14, fontweight="bold", y=0.98)
+    title_suffix = " (CUBIC vs. Reno)" if reno_data else " (TCP CUBIC)"
+    plt.suptitle(f"Latency Sweep Impact on Migration Performance{title_suffix}", fontsize=14, fontweight="bold", y=0.98)
     plt.tight_layout()
     plt.savefig(output_file)
     plt.close()
     print(f"Saved: {output_file}")
 
 
-def plot_loss_sweep(sweep_data, output_file):
+def plot_loss_sweep(cubic_data, reno_data, output_file):
     """
-    Plots Packet Loss Sweep:
-    - Panel 1: Transfer Completion Time vs. Packet Loss Rate.
-    - Panel 2: Effective Goodput (Mbit/s = File_Size_bits / Time_sec) vs. Packet Loss Rate.
+    Plots Packet Loss Sweep (CUBIC vs Reno):
+    - Panel 1: Completion Time vs. Packet Loss Rate (Log scale for explosion).
+    - Panel 2: Effective Goodput (Mbit/s) vs. Packet Loss Rate (Goodput collapse).
     """
-    if not sweep_data:
+    if not cubic_data and not reno_data:
         print("Skipping plot_loss_sweep: No loss sweep data found.")
         return
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5.5), dpi=300)
-    colors = {100: "#1f77b4", 200: "#ff7f0e", 50: "#2ca02c"}
-    markers = {100: "o", 200: "s", 50: "^"}
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5.5), dpi=300)
 
-    for fs in sorted(sweep_data.keys()):
-        series = sweep_data[fs]
-        losses = [x["param_val"] for x in series]
-        b_means = [x["metrics"]["direct_mean"] for x in series]
-        m_means = [x["metrics"]["migrate_mean"] for x in series]
+    colors_cubic = {100: "#1f77b4", 200: "#02818a"}
+    colors_reno = {100: "#d62728", 200: "#990000"}
+    markers_cubic = {100: "o", 200: "s"}
+    markers_reno = {100: "^", 200: "v"}
 
-        # Calculate effective goodput in Mbit/s
+    all_sizes = sorted(set(list(cubic_data.keys()) + list(reno_data.keys() if reno_data else [])))
+
+    for fs in all_sizes:
         file_bits = fs * 8.0
-        gp_base = [(file_bits / t) if t > 0 else 0 for t in b_means]
-        gp_migr = [(file_bits / t) if t > 0 else 0 for t in m_means]
 
-        c = colors.get(fs, "#333333")
-        m = markers.get(fs, "o")
+        if cubic_data and fs in cubic_data:
+            series_c = cubic_data[fs]
+            losses_c = [x["param_val"] for x in series_c]
+            b_c = [x["metrics"]["direct_mean"] for x in series_c]
+            gp_c = [(file_bits / t) if t > 0 else 0 for t in b_c]
 
-        # Panel 1: Completion Time
-        ax1.plot(losses, b_means, f"-{m}", color=c, linewidth=2, label=f"Baseline ({fs} MB)")
-        ax1.plot(losses, m_means, f"--{m}", color=c, linewidth=2, alpha=0.7, label=f"Migration ({fs} MB)")
+            c_color = colors_cubic.get(fs, "#1f77b4")
+            m_c = markers_cubic.get(fs, "o")
 
-        # Panel 2: Goodput
-        ax2.plot(losses, gp_base, f"-{m}", color=c, linewidth=2, label=f"Baseline Goodput ({fs} MB)")
-        ax2.plot(losses, gp_migr, f"--{m}", color=c, linewidth=2, alpha=0.7, label=f"Migration Goodput ({fs} MB)")
+            ax1.plot(losses_c, b_c, f"-{m_c}", color=c_color, linewidth=2, label=f"CUBIC ({fs} MB)")
+            ax2.plot(losses_c, gp_c, f"-{m_c}", color=c_color, linewidth=2, label=f"CUBIC Goodput ({fs} MB)")
 
-    ax1.set_title("Completion Time vs. Packet Loss", fontsize=12, fontweight="bold")
+        if reno_data and fs in reno_data:
+            series_r = reno_data[fs]
+            losses_r = [x["param_val"] for x in series_r]
+            b_r = [x["metrics"]["direct_mean"] for x in series_r]
+            gp_r = [(file_bits / t) if t > 0 else 0 for t in b_r]
+
+            r_color = colors_reno.get(fs, "#d62728")
+            m_r = markers_reno.get(fs, "^")
+
+            ax1.plot(losses_r, b_r, f"--{m_r}", color=r_color, linewidth=2, label=f"Reno ({fs} MB)")
+            ax2.plot(losses_r, gp_r, f"--{m_r}", color=r_color, linewidth=2, label=f"Reno Goodput ({fs} MB)")
+
+    ax1.set_title("Completion Time Explosion under Packet Loss", fontsize=12, fontweight="bold")
     ax1.set_xlabel("Packet Loss Rate (%)", fontsize=11, fontweight="semibold")
-    ax1.set_ylabel("Completion Time (seconds)", fontsize=11, fontweight="semibold")
-    ax1.grid(True, linestyle="--", alpha=0.6)
+    ax1.set_ylabel("Completion Time (seconds) [Log Scale]", fontsize=11, fontweight="semibold")
+    ax1.set_yscale("log")
+    ax1.grid(True, which="both", linestyle="--", alpha=0.5)
     ax1.legend(frameon=True, fontsize=9)
 
-    ax2.set_title("Effective Goodput Degradation", fontsize=12, fontweight="bold")
+    ax2.set_title("Effective Goodput Collapse under Loss", fontsize=12, fontweight="bold")
     ax2.set_xlabel("Packet Loss Rate (%)", fontsize=11, fontweight="semibold")
     ax2.set_ylabel("Effective Goodput (Mbit/s)", fontsize=11, fontweight="semibold")
     ax2.grid(True, linestyle="--", alpha=0.6)
     ax2.legend(frameon=True, fontsize=9)
 
-    plt.suptitle("Packet Loss Sweep Impact on Migration Performance (TCP CUBIC)", fontsize=14, fontweight="bold", y=0.98)
+    title_suffix = " (CUBIC vs. Reno)" if reno_data else " (TCP CUBIC)"
+    plt.suptitle(f"Packet Loss Sweep Impact on Migration Performance{title_suffix}", fontsize=14, fontweight="bold", y=0.98)
     plt.tight_layout()
     plt.savefig(output_file)
     plt.close()
     print(f"Saved: {output_file}")
 
 
-def plot_jitter_sweep(sweep_data, output_file):
+def plot_jitter_sweep(cubic_data, reno_data, output_file):
     """
-    Plots Latency Jitter Sweep:
+    Plots Latency Jitter Sweep (CUBIC vs Reno):
     - Panel 1: Completion Time vs. Latency Jitter for 100 MB and 200 MB.
-    - Panel 2: Handover Overhead vs. Latency Jitter (Mean ± Std).
+    - Panel 2: Handover Overhead (Delta T) vs. Latency Jitter.
     """
-    if not sweep_data:
+    if not cubic_data and not reno_data:
         print("Skipping plot_jitter_sweep: No jitter sweep data found.")
         return
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5.5), dpi=300)
-    colors = {100: "#1f77b4", 200: "#ff7f0e", 50: "#2ca02c"}
-    markers = {100: "o", 200: "s", 50: "^"}
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5.5), dpi=300)
 
-    for fs in sorted(sweep_data.keys()):
-        series = sweep_data[fs]
-        jitters = [x["param_val"] for x in series]
-        b_means = [x["metrics"]["direct_mean"] for x in series]
-        m_means = [x["metrics"]["migrate_mean"] for x in series]
-        o_means = [x["metrics"]["diff_mean"] for x in series]
-        o_stds = [x["metrics"]["diff_std"] for x in series]
+    colors_cubic = {100: "#1f77b4", 200: "#02818a"}
+    colors_reno = {100: "#d62728", 200: "#990000"}
+    markers_cubic = {100: "o", 200: "s"}
+    markers_reno = {100: "^", 200: "v"}
 
-        c = colors.get(fs, "#333333")
-        m = markers.get(fs, "o")
+    all_sizes = sorted(set(list(cubic_data.keys()) + list(reno_data.keys() if reno_data else [])))
 
-        # Panel 1: Completion Time
-        ax1.plot(jitters, b_means, f"-{m}", color=c, linewidth=2, label=f"Baseline ({fs} MB)")
-        ax1.plot(jitters, m_means, f"--{m}", color=c, linewidth=2, alpha=0.7, label=f"Migration ({fs} MB)")
+    for fs in all_sizes:
+        if cubic_data and fs in cubic_data:
+            series_c = cubic_data[fs]
+            jits_c = [x["param_val"] for x in series_c]
+            b_c = [x["metrics"]["direct_mean"] for x in series_c]
+            o_c = [x["metrics"]["diff_mean"] for x in series_c]
+            o_c_std = [x["metrics"]["diff_std"] for x in series_c]
 
-        # Panel 2: Overhead
-        ax2.errorbar(jitters, o_means, yerr=o_stds, fmt=f"-{m}", color=c, linewidth=2, capsize=4, label=f"Overhead ({fs} MB)")
+            c_color = colors_cubic.get(fs, "#1f77b4")
+            m_c = markers_cubic.get(fs, "o")
 
-    ax1.set_title("Completion Time vs. Jitter", fontsize=12, fontweight="bold")
-    ax1.set_xlabel("Latency Jitter (± ms)", fontsize=11, fontweight="semibold")
+            ax1.plot(jits_c, b_c, f"-{m_c}", color=c_color, linewidth=2, label=f"CUBIC ({fs} MB)")
+            ax2.errorbar(jits_c, o_c, yerr=o_c_std, fmt=f"-{m_c}", color=c_color, linewidth=2, capsize=4, label=f"CUBIC ΔT ({fs} MB)")
+
+        if reno_data and fs in reno_data:
+            series_r = reno_data[fs]
+            jits_r = [x["param_val"] for x in series_r]
+            b_r = [x["metrics"]["direct_mean"] for x in series_r]
+            o_r = [x["metrics"]["diff_mean"] for x in series_r]
+            o_r_std = [x["metrics"]["diff_std"] for x in series_r]
+
+            r_color = colors_reno.get(fs, "#d62728")
+            m_r = markers_reno.get(fs, "^")
+
+            ax1.plot(jits_r, b_r, f"--{m_r}", color=r_color, linewidth=2, label=f"Reno ({fs} MB)")
+            ax2.errorbar(jits_r, o_r, yerr=o_r_std, fmt=f"--{m_r}", color=r_color, linewidth=2, capsize=4, label=f"Reno ΔT ({fs} MB)")
+
+    ax1.set_title("Completion Time Sensitivity to Jitter", fontsize=12, fontweight="bold")
+    ax1.set_xlabel("Latency Jitter (± ms around 40ms)", fontsize=11, fontweight="semibold")
     ax1.set_ylabel("Completion Time (seconds)", fontsize=11, fontweight="semibold")
     ax1.grid(True, linestyle="--", alpha=0.6)
     ax1.legend(frameon=True, fontsize=9)
 
-    ax2.set_title("Handover Overhead vs. Jitter", fontsize=12, fontweight="bold")
-    ax2.set_xlabel("Latency Jitter (± ms)", fontsize=11, fontweight="semibold")
+    ax2.set_title("Handover Overhead vs. Latency Jitter", fontsize=12, fontweight="bold")
+    ax2.set_xlabel("Latency Jitter (± ms around 40ms)", fontsize=11, fontweight="semibold")
     ax2.set_ylabel("Handover Overhead ΔT (seconds)", fontsize=11, fontweight="semibold")
     ax2.grid(True, linestyle="--", alpha=0.6)
     ax2.legend(frameon=True, fontsize=9)
 
-    plt.suptitle("Latency Jitter Sweep Impact on Migration Performance (Base Latency: 40ms)", fontsize=14, fontweight="bold", y=0.98)
+    title_suffix = " (CUBIC vs. Reno)" if reno_data else " (TCP CUBIC)"
+    plt.suptitle(f"Latency Jitter Sweep Impact on Migration Performance{title_suffix}", fontsize=14, fontweight="bold", y=0.98)
     plt.tight_layout()
     plt.savefig(output_file)
     plt.close()
@@ -446,20 +493,25 @@ def create_all_plots(results_dir="./RESULTS", output_dir="./PLOTS"):
     cubic_data = load_baseline_results(cubic_csv)
     reno_data = load_baseline_results(reno_csv)
 
-    print("--- Generating Baseline Figures ---")
+    print("--- Generating Baseline Figures (CUBIC vs Reno) ---")
     plot_transfer_time(cubic_data, reno_data, os.path.join(output_dir, "plot_transfer_time.png"))
     plot_handover_overhead(cubic_data, reno_data, os.path.join(output_dir, "plot_handover_overhead.png"))
     plot_relative_decay(cubic_data, reno_data, os.path.join(output_dir, "plot_relative_decay.png"))
 
-    # 2. Parametric sweeps data
-    print("\n--- Generating Parametric Sweep Figures ---")
-    latency_data = load_sweep_series(results_dir, "latency")
-    loss_data = load_sweep_series(results_dir, "loss")
-    jitter_data = load_sweep_series(results_dir, "jitter")
+    # 2. Parametric sweeps data (CUBIC and Reno)
+    print("\n--- Generating Parametric Sweep Figures (CUBIC vs Reno) ---")
+    cubic_latency = load_sweep_series(results_dir, "latency", "cubic")
+    reno_latency = load_sweep_series(results_dir, "latency", "reno")
 
-    plot_latency_sweep(latency_data, os.path.join(output_dir, "plot_latency_sweep.png"))
-    plot_loss_sweep(loss_data, os.path.join(output_dir, "plot_loss_sweep.png"))
-    plot_jitter_sweep(jitter_data, os.path.join(output_dir, "plot_jitter_sweep.png"))
+    cubic_loss = load_sweep_series(results_dir, "loss", "cubic")
+    reno_loss = load_sweep_series(results_dir, "loss", "reno")
+
+    cubic_jitter = load_sweep_series(results_dir, "jitter", "cubic")
+    reno_jitter = load_sweep_series(results_dir, "jitter", "reno")
+
+    plot_latency_sweep(cubic_latency, reno_latency, os.path.join(output_dir, "plot_latency_sweep.png"))
+    plot_loss_sweep(cubic_loss, reno_loss, os.path.join(output_dir, "plot_loss_sweep.png"))
+    plot_jitter_sweep(cubic_jitter, reno_jitter, os.path.join(output_dir, "plot_jitter_sweep.png"))
 
     print("\nAll plots generated successfully!")
 
