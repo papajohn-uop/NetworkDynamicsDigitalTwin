@@ -99,9 +99,9 @@ def baseline_analysis():
     save_stats_dict_to_csv(all_results_migrate, "cubic_migrate.csv")
     save_stats_dict_to_csv(all_results_diff, "cubic_diff.csv")
 
-    # #analyse reno
-    # all_results_r, baseline_r, migrate_r, diff_r = analyse_baseline(BASELINE_RENO_PATH)
-    # save_all_results_to_csv(all_results_r, "reno_all_results.csv")
-    # save_stats_dict_to_csv(baseline_r, "reno_baseline.csv")
-    # save_stats_dict_to_csv(migrate_r, "reno_migrate.csv")
-    # save_stats_dict_to_csv(diff_r, "reno_diff.csv")
+    #analyse reno
+    all_results_r, baseline_r, migrate_r, diff_r = analyse_baseline(BASELINE_RENO_PATH)
+    save_all_results_to_csv(all_results_r, "reno_all_results.csv")
+    save_stats_dict_to_csv(baseline_r, "reno_baseline.csv")
+    save_stats_dict_to_csv(migrate_r, "reno_migrate.csv")
+    save_stats_dict_to_csv(diff_r, "reno_diff.csv")
