@@ -98,6 +98,9 @@ def save_stats_dict_to_csv(data_dict, output_csv_file):
     stat_keys = list(data_dict[first_key].keys())
     fieldnames = ["file_size_mb"] + stat_keys
 
+    #lets put all the csvs into antoher folder
+    output_csv_file="./RESULTS/"+output_csv_file
+
     with open(output_csv_file, mode="w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
@@ -128,6 +131,9 @@ def save_all_results_to_csv(all_results_dict, output_csv_file):
         all_results_dict (dict): Nested dictionary with direct, migration, and diff stats.
         output_csv_file (str): Output CSV filename/path.
     """
+    #lets put all the csvs into antoher folder
+    output_csv_file="./RESULTS/"+output_csv_file
+
     if not all_results_dict:
         return
     sub_keys = ["direct_transfer", "migration_transfer", "diff"]
