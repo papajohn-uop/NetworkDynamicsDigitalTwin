@@ -21,7 +21,7 @@ Thumbs.db
 
 # Generated experiment artifacts
 *.bin
-*.csv
-*.png
+# *.csv
+# *.png
 
 results/*
