@@ -6,6 +6,7 @@
 
 
 from baseline import baseline_analysis
+from sweeps import sweep_analysis
 
 
  
@@ -17,7 +18,10 @@ def main():
     Executes the baseline analysis workflow across payload sizes
     and generates output statistical summary tables.
     """
-    baseline_analysis()
+    # baseline_analysis()
+
+    #lets start anbalysing the tests with the differentc ocnfigruations
+    sweep_analysis()
 
 
 if __name__ == "__main__":
