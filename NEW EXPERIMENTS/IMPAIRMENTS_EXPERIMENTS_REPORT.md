@@ -298,6 +298,35 @@ At $p = 5\%$, goodput collapses to $1.13\text{ Mbps}$ (CUBIC) and $1.33\text{ Mb
 
 Critically, the run-to-run timeout variance ($\sigma = \pm 10\text{s} \to \pm 26\text{s}$) completely drowns out the physical handover penalty ($\sim 0.5 - 2\text{s}$). In lossy wireless channels, whether an application executes a mid-transfer subnet handover or remains uninterrupted on the original path is statistically imperceptible to end-to-end completion time.
 
+### 4.4 The Loss-Regime Reversal: Why TCP Reno Outperforms TCP CUBIC Under Packet Loss
+A striking empirical discovery of this comparative campaign is that **TCP Reno consistently and significantly outperforms TCP CUBIC under random packet loss ($p \ge 0.5\%$)**:
+
+- **1.0% Loss**: Reno completes a 100 MB baseline in **$250.06\text{ s}$** vs. CUBIC's **$265.53\text{ s}$** (**$+15.47\text{ s}$ faster for Reno**), and 200 MB in **$505.17\text{ s}$** vs. **$536.66\text{ s}$** (**$+31.49\text{ s}$ faster**).
+- **2.0% Loss**: Reno completes 100 MB in **$360.68\text{ s}$** vs. CUBIC's **$396.86\text{ s}$** (**$+36.18\text{ s}$ faster**), and 200 MB in **$725.91\text{ s}$** vs. **$804.54\text{ s}$** (**$+78.63\text{ s}$ faster**).
+- **5.0% Loss**: Reno completes 100 MB in **$629.94\text{ s}$** vs. CUBIC's **$740.41\text{ s}$** (**$+110.47\text{ s}$ faster**), and 200 MB in **$1,259.17\text{ s}$** vs. **$1,486.70\text{ s}$**—a massive **$+227.53\text{ s}$ ($\sim 3.8\text{ minutes}$) advantage for Reno**!
+- During mid-transfer migration at 5.0% loss, Reno completes in **$1,247.60\text{ s}$** vs. CUBIC's **$1,490.93\text{ s}$**—imposing a **$+243.33\text{ s}$ penalty on CUBIC**.
+
+#### Algorithmic & Mathematical Causality:
+1. **Small-Window TCP-Friendly Emulation Mode (RFC 8312)**:
+   In high-loss environments ($1\% - 5\%$), congestion windows are depressed to small values ($W \le 4 - 8\text{ packets}$). In this small-window regime, CUBIC cannot execute its cubic expansion ($t^3$) and falls back to its RFC 8312 TCP-friendly emulation equation:
+   $$W_{\text{tcp}}(t) = W_{\max} \cdot \beta + \left(\frac{3(1-\beta)}{1+\beta}\right) \frac{t}{\text{RTT}}$$
+   With CUBIC's multiplicative factor $\beta = 0.7$, its recovery slope factor is:
+   $$\text{Slope}_{\text{CUBIC}} = \frac{3(1 - 0.7)}{1 + 0.7} = \frac{0.9}{1.7} \approx \mathbf{0.529\text{ MSS per RTT}}$$
+   In contrast, standard **TCP Reno** applies $\beta = 0.5$ and an additive increase of:
+   $$\text{Slope}_{\text{Reno}} = \mathbf{1.0\text{ MSS per RTT}}$$
+   Consequently, after every loss event, **Reno inflates its congestion window nearly twice as fast as CUBIC ($1.0$ vs. $0.53\text{ MSS/RTT}$)**. In loss-impaired channels, Reno recovers throughput much more quickly.
+2. **Concave Plateau Trapping**:
+   CUBIC’s window growth curve is specifically designed to pause and linger around the previous saturation window $W_{\max}$ (the plateau phase) to avoid overloading high-speed links. However, in an unconditioned wireless channel with persistent random drops, CUBIC is perpetually knocked down before it can transition from its concave plateau to aggressive convex probing, causing goodput starvation. Reno's strictly linear AIMD ramp pushes packets through the lossy bottleneck with greater persistence.
+
+#### Cross-Regime Performance Envelope Synthesis
+
+| Network Regime | Best Protocol | Quantitative Performance Gap | Underlying Physical Cause |
+| :--- | :---: | :---: | :--- |
+| **Pristine Links (Scenario C0)** | **Parity (Tie)** | $\Delta \le 0.03\%$ ($< 25\text{ ms}$) | Both algorithms saturate the token-bucket ceiling without packet loss. |
+| **High Latency / High BDP** | **TCP CUBIC** | CUBIC is up to **$+48.6\%$ faster** | CUBIC's $t^3$ growth is RTT-decoupled; Reno's $1/\text{RTT}$ growth stalls. |
+| **Random Packet Loss ($p \ge 0.5\%$)** | **TCP Reno** | Reno is up to **$+227\text{ s}$ ($3.8\text{ min}$) faster** | Reno inflates at $1.0\text{ MSS/RTT}$ vs. CUBIC's $0.53\text{ MSS/RTT}$ in small-window mode. |
+| **Delay Jitter ($\pm 2\text{ms} \to \pm 20\text{ms}$)** | **TCP CUBIC** | CUBIC is **$+1\text{s} \to +5.5\text{s}$ faster** | CUBIC maintains smoother RTT filtering and tighter resumption bounds. |
+
 ---
 
 ## 5. Visual Comparative Figures
