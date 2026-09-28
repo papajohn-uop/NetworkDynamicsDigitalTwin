@@ -3,7 +3,8 @@
 from csv_handler import read_single_csv, get_all_csv_files
 
 def analyse_single_csv_file(target_csv_file):
-    print("Analysing csv file-->",target_csv_file)
+    # print("*****************************************")
+    # print("Analysing csv file-->",target_csv_file)
     # data[0] are the metadata
     # data[1] are the baseline times
     # data[2] are the migration times
@@ -11,14 +12,15 @@ def analyse_single_csv_file(target_csv_file):
     data = read_single_csv(target_csv_file)
     #lets do some analysis on the data
     # get the stats of the data 
-
+    test_metadata=data[0]
     baseline_stats=compute_stats(data[1])
     migration_stats=compute_stats(data[2])
     overhead_stats=compute_stats(data[3])
     
 
-    
+    return [test_metadata,baseline_stats,migration_stats,overhead_stats]
     # print the results
+    print(test_metadata)
     print(baseline_stats)
     print(migration_stats)
     print(overhead_stats)

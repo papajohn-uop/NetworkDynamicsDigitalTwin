@@ -38,6 +38,7 @@ def read_single_csv(target_csv_file):
         csv_metadata["cwnd_mode"] = row_1[5]
         csv_metadata["file_size_mb"] = row_1[6]
         
+        # print(target_csv_file)
         # print(csv_metadata)
     with open(target_csv_file, "r") as f:
         reader = csv.reader(f)
