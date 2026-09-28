@@ -16,14 +16,12 @@ def analyse_single_csv_file(target_csv_file):
     migration_stats=compute_stats(data[2])
     overhead_stats=compute_stats(data[3])
     
-    # get the improvement
-    improvement=compute_improvement(data[1],data[2])
+
     
     # print the results
     print(baseline_stats)
     print(migration_stats)
     print(overhead_stats)
-    print(improvement)
 
     # print(data)
 
@@ -59,18 +57,3 @@ def compute_stats(data_list):
     }
         
 
-def compute_improvement(baseline_list, migration_list):
-    """
-    Computes the improvement percentage between two lists of numbers.
-    """
-    if not baseline_list or not migration_list:
-        return 0.0
-    
-    baseline_mean = sum(baseline_list) / len(baseline_list)
-    migration_mean = sum(migration_list) / len(migration_list)
-    
-    if baseline_mean == 0:
-        return 0.0
-    
-    improvement = ((baseline_mean - migration_mean) / baseline_mean) * 100
-    return improvement
