@@ -107,8 +107,8 @@ def baseline_analysis():
     save_stats_dict_to_csv(migrate_r, "reno_migrate.csv")
     save_stats_dict_to_csv(diff_r, "reno_diff.csv")
 
-    # Generate visualization figures comparing CUBIC and Reno
-    generate_all_plots(
-        cubic_results=[all_results, all_results_baseline, all_results_migrate, all_results_diff],
-        reno_results=[all_results_r, baseline_r, migrate_r, diff_r]
-    )
+    # Visualization figures are now decoupled and generated via plot_results.py
+    # generate_all_plots(
+    #     cubic_results=[all_results, all_results_baseline, all_results_migrate, all_results_diff],
+    #     reno_results=[all_results_r, baseline_r, migrate_r, diff_r]
+    # )

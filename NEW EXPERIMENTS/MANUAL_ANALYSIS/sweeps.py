@@ -10,9 +10,12 @@ import json
 #lets define some folders where we have the results
 
 BASE_DIR = "./"
-LATENCY_SWEEP_PATH = BASE_DIR + "EXPERIMENT3/latency_sweep/"
-LOSS_SWEEP_PATH = BASE_DIR + "EXPERIMENT3/loss_sweep/"
-JITTER_SWEEP_PATH = BASE_DIR + "EXPERIMENT3/jitter_sweep/"
+CUBIC_LATENCY_SWEEP_PATH = BASE_DIR + "EXPERIMENT3/latency_sweep/"
+CUBIC_LOSS_SWEEP_PATH = BASE_DIR + "EXPERIMENT3/loss_sweep/"
+CUBIC_JITTER_SWEEP_PATH = BASE_DIR + "EXPERIMENT3/jitter_sweep/"
+RENO_LATENCY_SWEEP_PATH = BASE_DIR + "EXPERIMENT4/latency_sweep/"
+RENO_LOSS_SWEEP_PATH = BASE_DIR + "EXPERIMENT4/loss_sweep/"
+RENO_JITTER_SWEEP_PATH = BASE_DIR + "EXPERIMENT4/jitter_sweep/"
 
 def generic_sweep_analysis(file_path, parameter):
     if parameter not in ["latency", "loss", "jitter"]:
@@ -84,32 +87,35 @@ def export_csvs(results,parameter):
         save_stats_dict_to_csv(all_results_diff[parameter_value], f"./{parameter}_{parameter_value}_diff.csv")
     
 
-def latency_sweep_analysis():
-    return (generic_sweep_analysis(LATENCY_SWEEP_PATH,"latency"))
+def latency_sweep_analysis(path,parameter):
+    return (generic_sweep_analysis(path,parameter))
  
+def loss_sweep_analysis(path,parameter):
+   return (generic_sweep_analysis(path,parameter)) 
 
-
-        
-
-
-def loss_sweep_analysis():
-   return (generic_sweep_analysis(LOSS_SWEEP_PATH,"loss")) 
-
-def jitter_sweep_analysis():
-    return (generic_sweep_analysis(JITTER_SWEEP_PATH,"jitter"))
+def jitter_sweep_analysis(path,parameter):
+    return (generic_sweep_analysis(path,parameter))
 
 def sweep_analysis():
     #latency
-    _results =latency_sweep_analysis()
+    _results =latency_sweep_analysis(CUBIC_LATENCY_SWEEP_PATH,"latency")
     export_csvs(_results, "cubic_latency")
     #loss
-    _results =loss_sweep_analysis() 
+    _results =loss_sweep_analysis(CUBIC_LOSS_SWEEP_PATH,"loss") 
     export_csvs(_results, "cubic_loss")
     #jitter
-    _results =jitter_sweep_analysis()
+    _results =jitter_sweep_analysis(CUBIC_JITTER_SWEEP_PATH,"jitter")
     export_csvs(_results, "cubic_jitter") 
 
-    
+    #latency
+    _results =latency_sweep_analysis(RENO_LATENCY_SWEEP_PATH,"latency")
+    export_csvs(_results, "reno_latency")
+    #loss
+    _results =loss_sweep_analysis(RENO_LOSS_SWEEP_PATH,"loss") 
+    export_csvs(_results, "reno_loss")
+    #jitter
+    _results =jitter_sweep_analysis(RENO_JITTER_SWEEP_PATH,"jitter")
+    export_csvs(_results, "reno_jitter") 
 
 
     
