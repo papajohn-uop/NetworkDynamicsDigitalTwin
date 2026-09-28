@@ -95,10 +95,10 @@ def baseline_analysis():
     all_results, all_results_baseline, all_results_migrate, all_results_diff = analyse_baseline(BASELINE_CUBIC_PATH)
 
     # Save the 4 CSV tables for cubic
-    save_all_results_to_csv(all_results, "cubic_all_results.csv")
-    save_stats_dict_to_csv(all_results_baseline, "cubic_baseline.csv")
-    save_stats_dict_to_csv(all_results_migrate, "cubic_migrate.csv")
-    save_stats_dict_to_csv(all_results_diff, "cubic_diff.csv")
+    save_all_results_to_csv(all_results, "baseline_cubic_all_results.csv")
+    save_stats_dict_to_csv(all_results_baseline, "baseline_cubic_direct_transfer.csv")
+    save_stats_dict_to_csv(all_results_migrate, "baseline_cubic_migration_transfer.csv")
+    save_stats_dict_to_csv(all_results_diff, "baseline_cubic_diff.csv")
 
     #analyse reno
     all_results_r, baseline_r, migrate_r, diff_r = analyse_baseline(BASELINE_RENO_PATH)
