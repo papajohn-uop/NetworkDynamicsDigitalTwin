@@ -12,13 +12,12 @@ from baseline import baseline_analysis
     
   
 def main():
+    """
+    Main driver script for manual experiments analysis.
+    Executes the baseline analysis workflow across payload sizes
+    and generates output statistical summary tables.
+    """
     baseline_analysis()
-    
-
-    
-
-    
-    
 
 
 if __name__ == "__main__":
