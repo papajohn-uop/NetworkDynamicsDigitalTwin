@@ -59,7 +59,7 @@ Through **1,320 benchmark transfers** across pristine and impaired links (sweepi
 │                                           ▼                                             │
 │  ACT IV: UNIVERSAL SYNTHESIS & 6G NDT DEPLOYMENT (Predictive Decision Matrix)           │
 │  • Handover Invariance holds universally across both CCAs across all 56 sweep setups.  │
-│  • Loss Masking: Timeout noise (σ ≈ 12-26s) completely masks physical handover deadtime.│
+│  • Timeout Dominance: Retransmission noise (σ ≈ 12-26s) completely dwarfs handover deadtime.│
 │  • The 6G Blueprint: Automated rules for ATSSS steering and Network Digital Twin slices.│
 │                                                                                         │
 └─────────────────────────────────────────────────────────────────────────────────────────┘

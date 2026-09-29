@@ -19,7 +19,7 @@ To isolate pure transport-layer socket dynamics and slow-start BDP inflation fro
 2. **Hyperbolic Overhead Amortization**: Because absolute handover dead-time is invariant while baseline delivery time scales linearly with payload volume ($T \propto S$), the relative handover penalty decays as $\rho(S) \propto 1/S$, plummeting from $0.48\% - 0.66\%$ at 50 MB down to $0.08\%$ at 500 MB—a **$10\times$ penalty reduction**.
 3. **Pristine Link Algorithmic Parity**: In the absence of channel-induced packet drops and latency, TCP CUBIC and TCP Reno achieve identical transfer times and goodputs ($\Delta \le 0.03\%$), confirming that both congestion control algorithms operate strictly within slow-start and token-bucket scheduling bounds without loss-triggered backoff.
 4. **High-BDP Latency Divergence**: Under propagation latency sweeps ($10\text{ ms} \to 160\text{ ms}$, RTT up to $320\text{ ms}$), modern TCP CUBIC vastly outperforms legacy TCP Reno, achieving up to a **$+48.6\%$ speedup** at $160\text{ ms}$ latency. Reno's additive-increase window growth ($\frac{1}{\text{RTT}}$ per ACK) incurs an exorbitant completion penalty ($+15.30\text{ s}$ at 100 MB and $+28.22\text{ s}$ at 200 MB), whereas CUBIC's RTT-decoupled polynomial window expansion rapidly saturates high-BDP pipes. Mid-transfer migration under $160\text{ ms}$ latency expands Reno's duration to $96.48\text{ s}$ ($+31.20\text{ s}$ migration penalty over CUBIC).
-5. **The Loss-Regime Inversion & Stochastic Masking**: Under non-congestive channel loss ($p \ge 1\%$), **Reno reverses this advantage, outperforming CUBIC by up to 3.8 minutes** due to small-window AIMD recovery rate advantages ($1.0$ vs. $0.53\text{ MSS/RTT}$). Furthermore, in lossy wireless channels, retransmission timeout (RTO) noise ($\sigma \approx 12 - 26\text{ s}$) completely masks physical handover dead-time ($\sim 0.5 - 2\text{ s}$).
+5. **The Loss-Regime Inversion & Handover Negligibility**: Under non-congestive channel loss ($p \ge 1\%$), **Reno reverses this advantage, outperforming CUBIC by up to 3.8 minutes** due to small-window AIMD recovery rate advantages ($1.0$ vs. $0.53\text{ MSS/RTT}$). Furthermore, in lossy wireless channels, retransmission timeout (RTO) noise ($\sigma \approx 12 - 26\text{ s}$) completely dwarfs physical handover dead-time ($\sim 0.5 - 2\text{ s}$), rendering handover overhead practically negligible.
 
 These empirical envelopes provide the foundation for an actionable traffic steering decision engine for 6G ATSSS and predictive Network Digital Twins.
 
@@ -290,7 +290,7 @@ As shown in [Figure 6](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROAC
 
 ---
 
-### 6.2 Packet Loss & The Stochastic Masking Principle
+### 6.2 Packet Loss & Handover Overhead Negligibility
 
 When random channel loss ($p \in \{0.1\%, 0.5\%, 1.0\%, 2.0\%, 5.0\%\}$) is injected, transport dynamics deviate radically from clean links:
 
@@ -312,7 +312,7 @@ When random channel loss ($p \in \{0.1\%, 0.5\%, 1.0\%, 2.0\%, 5.0\%\}$) is inje
 
 #### Core Physical Observations:
 1. **Goodput Collapse**: Total transfer durations expand from $\approx 18\text{ s}$ to **$740.4\text{ s}$ ($12.3\text{ min}$)** for 100 MB and **$1486.7\text{ s}$ ($24.8\text{ min}$)** for 200 MB at $p = 5.0\%$. Goodput decays from $45.6\text{ Mbit/s}$ to $1.13\text{ Mbit/s}$ in accordance with CUBIC's loss model $G \propto (C_c/p)^{0.75}$ [4], [13] (in contrast to classical AIMD $1/\sqrt{p}$ formulations [16], [17]).
-2. **The Stochastic Masking Effect**: In lossy channels, the variance introduced by random packet drops and retransmission timeouts ($\sigma = \pm 11.5\text{ s} \to \pm 26.8\text{ s}$) **completely dwarfs the physical handover penalty** ($\approx 0.5 - 2\text{ s}$). If an uninterrupted baseline run encounters an unlucky cluster of drops near the end of a transfer, it triggers exponential backoff ($\text{RTO} \ge 1\text{ s}$), whereas a migration session may experience smoother drop distribution. Consequently, effective goodput between baseline and migration is virtually identical ($\le 0.1\text{ Mbit/s}$ difference at $p \ge 1\%$), proving that **mid-transfer handover overhead is practically negligible in lossy channels**.
+2. **Retransmission Timeout Dominance (Overhead Negligibility)**: In lossy channels, the variance introduced by random packet drops and retransmission timeouts ($\sigma = \pm 11.5\text{ s} \to \pm 26.8\text{ s}$) **completely dwarfs the physical handover penalty** ($\approx 0.5 - 2\text{ s}$). If an uninterrupted baseline run encounters an unlucky cluster of drops near the end of a transfer, it triggers exponential backoff ($\text{RTO} \ge 1\text{ s}$), whereas a migration session may experience smoother drop distribution. Consequently, effective goodput between baseline and migration is virtually identical ($\le 0.1\text{ Mbit/s}$ difference at $p \ge 1\%$), proving that **mid-transfer handover overhead is practically negligible in lossy channels**.
 
 ---
 
@@ -371,7 +371,7 @@ As depicted in [Figure 10](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APP
 
 ---
 
-### 7.2 Goodput Collapse & Stochastic Masking Under Packet Loss
+### 7.2 Goodput Collapse & Handover Negligibility Under Packet Loss
 
 Under non-congestive channel packet loss ($0.1\% \to 5\%$), both protocols experience severe throughput degradation governed by the inverse square-root loss law:
 
@@ -393,7 +393,7 @@ Under non-congestive channel packet loss ($0.1\% \to 5\%$), both protocols exper
 
 As illustrated in [Figure 11](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/plots/impairments/fig10_comp_loss_cubic_vs_reno.png):
 1. **Matching Goodput Collapse**: Effective delivery rates collapse from $\approx 12\text{ Mbps}$ at $0.1\%$ loss down to $\approx 1.13 - 1.33\text{ Mbps}$ at $5.0\%$ loss. In this regime, Mathis' formula [16] $\text{Throughput} \approx \frac{\text{MSS}}{\text{RTT}\sqrt{p}}$ dominates both protocols equally.
-2. **Retransmission Timeout Masking**: Run-to-run standard deviation under loss ($\sigma = \pm 10\text{ s} \to \pm 26\text{ s}$) completely masks the physical handover overhead ($\sim 0.5 - 2\text{ s}$). In lossy wireless channels, mid-transfer IP handover penalty is statistically negligible compared to transport-layer retransmission variance.
+2. **Retransmission Timeout Dominance**: Run-to-run standard deviation under loss ($\sigma = \pm 10\text{ s} \to \pm 26\text{ s}$) completely dwarfs the physical handover overhead ($\sim 0.5 - 2\text{ s}$). In lossy wireless channels, mid-transfer IP handover penalty is statistically negligible compared to transport-layer retransmission variance.
 3. **The Loss-Regime Inversion (Why Reno Outperforms CUBIC Under Packet Loss)**:
    While CUBIC dominates latency sweeps by up to $+48.6\%$, the performance relationship **reverses under packet loss ($p \ge 0.5\%$)**: **TCP Reno consistently completes transfers faster than TCP CUBIC across all loss points**:
    - At **1.0% Loss**: Reno completes a 100 MB baseline in **$250.06\text{ s}$** vs. CUBIC's **$265.53\text{ s}$** (**$+15.47\text{ s}$ faster for Reno**), and 200 MB in **$505.17\text{ s}$** vs. **$536.66\text{ s}$** (**$+31.49\text{ s}$ faster**).
@@ -495,7 +495,7 @@ Because the absolute handover dead-time is invariant ($O(1)$ scaling), relative 
 This paper presented a lightweight, fully kernel-native Network Digital Twin framework for evaluating transport dynamics and handover latency across multi-homed subnets. Through empirical evaluations across pristine links ($50\text{ MB} \to 500\text{ MB}$, 200 transfers) and parametric network impairment sweeps (latency up to $160\text{ ms}$, loss up to $5\%$, jitter up to $\pm 20\text{ ms}$ across 56 configurations and 1,120 transfers), we established:
 1. The **Handover Invariance Law**: Absolute handover latency remains invariant to transfer volume under pristine links ($\approx 52 - 55\text{ ms}$) and scales strictly linearly with RTT ($\Delta T \propto \text{RTT}$), maintaining payload independence even across high BDP channels for both CUBIC and Reno.
 2. The **High-BDP Latency Divergence**: CUBIC provides up to a **$+48.6\%$ performance advantage** over Reno in high-RTT environments due to its RTT-decoupled polynomial window growth function.
-3. The **Loss-Regime Inversion & Stochastic Masking**: In lossy channels ($p \ge 1\%$), Reno outperforms CUBIC by up to **$3.8\text{ minutes}$**, while random channel drop variance overrides handover dead-time, producing goodput parity between continuous and interrupted transfers.
+3. The **Loss-Regime Inversion & Handover Negligibility**: In lossy channels ($p \ge 1\%$), Reno outperforms CUBIC by up to **$3.8\text{ minutes}$**, while random channel drop variance overrides handover dead-time, producing goodput parity between continuous and interrupted transfers.
 4. The **Jitter Tolerance Principle**: Transport handovers remain stable under packet delay dispersion up to $\pm 20\text{ ms}$.
 
 ### Future Work

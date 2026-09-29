@@ -26,9 +26,9 @@ Experiment 3 systematically evaluates the limits of the **Handover Invariance La
   - At **160 ms Latency**: $\Delta T_{100\text{MB}} = 7.260\text{ s}$ vs. $\Delta T_{200\text{MB}} = 6.987\text{ s}$ ($\Delta = 273\text{ ms}$)
 - **Physical Rationale**: Overhead is dominated by the round-trip control interactions (TCP 3-way handshake, FTP control resumption negotiation, and slow-start BDP inflation) on the target subnet, while steady-state bulk data transfer cancels out.
 
-### 2. The Stochastic Masking Effect in Lossy Channels
+### 2. Handover Overhead Negligibility in Lossy Channels
 - In the presence of packet drops ($0.1\% \to 5\%$), transfer times expand dramatically due to congestion window deflation and retransmission timeouts (from $\sim 18\text{s}$ at 0% loss to **$740\text{s}$** at 5% loss for 100 MB, and **$1486\text{s}$** for 200 MB).
-- **Stochastic Noise Dominance**: Run-to-run standard deviation under loss ($\sigma = \pm 11\text{s} \to \pm 26\text{s}$) completely dwarfs the physical handover penalty ($\sim 0.5 - 2\text{s}$).
+- **Retransmission Timeout Dominance**: Run-to-run standard deviation under loss ($\sigma = \pm 11\text{s} \to \pm 26\text{s}$) completely dwarfs the physical handover penalty ($\sim 0.5 - 2\text{s}$).
 - **Goodput Parity**: Effective goodput between uninterrupted baseline and mid-transfer migration is virtually indistinguishable across all loss rates:
   - At **1.0% Loss**: Goodput is **$3.16\text{ Mbps}$** (Baseline) vs. **$3.26\text{ Mbps}$** (Migration)
   - At **2.0% Loss**: Goodput is **$2.11\text{ Mbps}$** (Baseline) vs. **$2.13\text{ Mbps}$** (Migration)
@@ -291,7 +291,7 @@ As demonstrated in Tables 1A and 2A:
 
 Across all tested latency and jitter configurations, doubling the transfer payload from $100\text{ MB}$ to $200\text{ MB}$ produces **zero systematic expansion in handover overhead**. Overhead scales linearly with RTT ($\Delta T \propto \text{RTT}$), but remains asymptotically flat with respect to transfer size ($S$).
 
-### 4.3 The Stochastic Masking Effect in Lossy Channels
+### 4.3 Handover Overhead Negligibility in Lossy Channels
 Under random channel loss ($0.1\% \to 5\%$), both CUBIC and Reno collapse to matching goodput levels governed by the Mathis et al. formula:
 $$\text{Throughput} \approx \frac{\text{MSS}}{\text{RTT} \sqrt{p}}$$
 At $p = 5\%$, goodput collapses to $1.13\text{ Mbps}$ (CUBIC) and $1.33\text{ Mbps}$ (Reno), expanding a $200\text{ MB}$ transfer to $\sim 1,250 - 1,480\text{ seconds}$ ($\sim 20 - 25\text{ minutes}$).
