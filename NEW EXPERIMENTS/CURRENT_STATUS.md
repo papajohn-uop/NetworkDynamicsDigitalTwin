@@ -279,12 +279,19 @@ Evaluates statistical stability and operational boundaries across **120 automate
 
 ## 5. Artifact Repository Structure (GitHub Directory Layout)
 
-To ensure repeatability, reproducibility, and compliance with IEEE open-science artifact guidelines, the accompanying repository organizes configuration scripts, experimental drivers, analysis routines, and manuscript sources into a clean, publication-ready directory tree. The root directory contains strictly the two primary documents ([CURRENT_STATUS.md](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/CURRENT_STATUS.md) and [paper_draft.md](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/paper_draft.md)), while intermediate notes and legacy code are consolidated in `archive/`:
+To ensure repeatability, reproducibility, and compliance with IEEE open-science artifact guidelines, the accompanying repository organizes configuration scripts, experimental drivers, analysis routines, and manuscript sources into a clean, publication-ready directory tree. The manuscript sources are divided into the active IEEE conference paper ([paper/main.tex](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/paper/main.tex)) and the comprehensive future journal extension ([journal_extension/journal_draft.md](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/journal_extension/journal_draft.md)):
 
 ```
 NEW EXPERIMENTS/
 ├── CURRENT_STATUS.md                                 # Executive architecture, methodology & policy matrix
-├── paper_draft.md                                   # Complete journal manuscript draft
+│
+├── paper/                                           # STAGE 1: IEEE Conference Manuscript (Active Focus)
+│   ├── main.tex                                     # IEEEtran conference paper (Flow Steering & Telemetry)
+│   └── references.bib                               # Complete BibTeX bibliography (17 citations)
+│
+├── journal_extension/                               # STAGE 2: Future Journal Manuscript (Archival Extension)
+│   ├── README.md                                    # Journal extension manifest & roadmap
+│   └── journal_draft.md                             # Comprehensive 1,520-run CUBIC vs Reno empirical draft
 │
 ├── phase2_telemetry/                                # Active ICMP telemetry and 2x2 steering controller
 │   ├── telemetry_daemon.py                         # 100ms lightweight prober & circular buffer
@@ -333,7 +340,9 @@ NEW EXPERIMENTS/
 
 * **Executive Documentation & Manuscript Sources:**
   * [CURRENT_STATUS.md](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/CURRENT_STATUS.md) — System Architecture, 3-Phase Methodology & Policy Matrix
-  * [paper_draft.md](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/paper_draft.md) — Full Manuscript Working Draft
+  * [paper/main.tex](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/paper/main.tex) — Stage 1: Active IEEE Conference Manuscript
+  * [paper/references.bib](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/paper/references.bib) — Conference Paper BibTeX Bibliography
+  * [journal_extension/journal_draft.md](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/journal_extension/journal_draft.md) — Stage 2: Comprehensive Journal Extension Draft
   * [archive/README.md](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/archive/README.md) — Manifest of Archived Documents & Prototype Code
 
 * **Core Testbed Orchestration & Drivers:**
