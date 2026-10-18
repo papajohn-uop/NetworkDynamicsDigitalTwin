@@ -1,3 +1,0 @@
-file_size_mb,direct_transfer_mean,direct_transfer_median,direct_transfer_std,direct_transfer_min,direct_transfer_max,direct_transfer_count,migration_transfer_mean,migration_transfer_median,migration_transfer_std,migration_transfer_min,migration_transfer_max,migration_transfer_count,diff_mean,diff_median,diff_std,diff_min,diff_max,diff_count
-100.0,22.3875,22.1853,0.5474,22.1071,24.0034,10,23.2464,23.2359,0.0845,23.1277,23.4186,10,0.8589,1.0525,0.5335,-0.6879,1.2272,10
-200.0,43.5518,43.4154,0.3769,43.2899,44.6545,10,44.5811,44.4534,0.4593,44.1817,45.86,10,1.0293,1.0486,0.6383,-0.2166,2.4667,10
