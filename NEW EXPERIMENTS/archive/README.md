@@ -16,7 +16,7 @@ The following files were intermediate drafting notes, literature summaries, and 
 
 ### 2. `legacy_code/` (Prototype & Deprecated Codebases)
 - `original_scripts/`: Early emulation scripts prior to production refactoring in `scripts/`.
-- `MANUAL_ANALYSIS/`: Prototype Python parsing and plotting routines, superseded by `analyze_baseline_results.py` and `analyze_impairments_results.py`.
+*(Note: `MANUAL_ANALYSIS/` is retained at workspace root for direct exploratory access.)*
 
 ### 3. Standalone Prototype Scripts
 - `analyze_sweeps.py`: Early prototype tool created to analyze Experiment 3 (TCP CUBIC parametric sweeps only). Superseded by [`analyze_impairments_results.py`](../analyze_impairments_results.py).

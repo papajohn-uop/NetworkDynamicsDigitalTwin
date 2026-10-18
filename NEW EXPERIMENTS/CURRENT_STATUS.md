@@ -321,11 +321,12 @@ NEW EXPERIMENTS/
 │
 ├── analyze_baseline_results.py                      # Automated statistical data processor & chart generator
 ├── analyze_impairments_results.py                   # Parametric sweep analyzer and Mathis model validator
+├── MANUAL_ANALYSIS/                                 # Exploratory parsing scripts and intermediate results
 │
 └── archive/                                         # Archived legacy drafts, reports & prototypes
     ├── README.md                                    # Archive manifest & component descriptions
     ├── docs/                                        # Superseded markdown drafts & intermediate reports
-    └── legacy_code/                                 # Superseded prototype script folders (MANUAL_ANALYSIS, etc.)
+    └── legacy_code/                                 # Superseded prototype script folders (original_scripts, etc.)
 ```
 
 ### Direct Clickable Links to Primary Repository Artifacts:
