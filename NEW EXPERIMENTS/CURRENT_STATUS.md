@@ -41,7 +41,7 @@ The emulation framework utilizes a deliberate two-stage architectural progressio
 2. **Phase 2 & 3 Architecture (3-Namespace Edge Gateway):**
    * **Why 3 Namespaces (`ns_router`):** In a production 5G/6G edge network (e.g., 3GPP ATSSS), remote cloud destinations have a **single, fixed destination IP address** (`10.0.3.2`).
    * **Transparent Routing:** The client does not re-anchor to a different IP. Instead, `ns_client` changes its local routing table via Netlink (`ip route replace default via 10.0.1.2 dev veth_fiber_c`), while packets transparently traverse `ns_router` to reach `ns_server`.
-   * **Decoupled Impairment Injection:** `ns_router` acts as an independent wireless channel where the Hero Trace transient spike ($88\text{ ms}$ at $t = 3.0\text{ s}$) and persistent structural step ($95\text{ ms}$ at $t = 5.0\text{ s}$) are injected dynamically without modifying client or server stack configurations.
+   * **Decoupled Impairment Injection:** `ns_router` acts as an independent wireless channel where the Hero Trace transient spike ($88\text{ ms}$ at $t = 5.0\text{--}5.1\text{ s}$) and persistent structural step ($95\text{ ms}$ at $t = 10.0\text{ s}$) are injected dynamically without modifying client or server stack configurations.
 
 ---
 
@@ -173,19 +173,24 @@ Phase 1 established six foundational empirical findings that provide the ground 
 | **Mathis Loss Model Decay Fit** | $R^2 = 0.994$ | $R^2 = 0.991$ | Validates inverse-square-root goodput collapse ($G \propto 1/\sqrt{p}$). |
 
 ### Phase 2: Dual-Path Telemetry & 2x2 Steering Framework
+* Detailed documentation & results: [`phase2_telemetry/PHASE2_EXPERIMENTS.md`](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/phase2_telemetry/PHASE2_EXPERIMENTS.md)
+* Modular LaTeX Section: [`paper/phase2_telemetry.tex`](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/paper/phase2_telemetry.tex)
 * Out-of-band periodic active ICMP probing at 100 ms intervals across both interfaces.
 * Decouples link health inspection from user payload dynamics.
 * Evaluates a $2 \times 2$ decision taxonomy (Filtering Depth vs. Persistence).
 * Executes Netlink route replacement and application re-anchoring.
 
-### Phase 3: Comparative Robustness & Performance Evaluation
+### Phase 3: Comparative Robustness & Performance Evaluation (20.0s Timeline)
 * **Part A: Deterministic Micro-Benchmark (Hero Trace)**
-  * Transient micro-burst (88 ms for 100 ms at $t = 3.0$ s).
-  * Persistent structural degradation (delay steps to 95 ms at $t = 5.0$ s).
+  * Detailed documentation: [`phase3_eval/HERO_TRACE_EXPERIMENT.md`](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/phase3_eval/HERO_TRACE_EXPERIMENT.md)
+  * Modular LaTeX Section: [`paper/hero_trace.tex`](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/paper/hero_trace.tex)
+  * 20.0s session timeline with 100 ms telemetry sampling interval.
+  * Transient micro-burst (88 ms for 100 ms at $t = 5.0\text{--}5.1$ s).
+  * Persistent structural degradation (delay steps to 95 ms at $t = 10.0$ s, breaching SLA $\tau=65$ ms).
   * Isolates false alarms from true SLA restoration across all 4 policies.
 * **Part B: Randomized Monte Carlo Stress-Testing**
-  * 120 automated test iterations ($N = 30$ runs per policy).
-  * Poisson-distributed noise bursts and random step arrivals.
+  * 120 automated test iterations ($N = 30$ runs per policy across 20.0s sessions).
+  * Poisson-distributed noise bursts ($\lambda = 0.5\text{ s}^{-1}$) and random step arrivals ($t_{\text{step}} \sim \mathcal{U}(6.0, 14.0)\text{ s}$).
   * Aggregates false-alarm ratios, flapping counts, and SLA violation lag.
 
 ---
@@ -230,28 +235,28 @@ The target SLA threshold is configured at $\tau = 65$ ms. Sliding window size is
 ## 4. Phase 3 Evaluation Scenarios
 
 ### Part A: Deterministic Micro-Benchmark (Hero Trace)
-Evaluates an active session initially bound to Link B (50 ms base RTT, 10.0.2.0/24) communicating with `ns_server` (10.0.3.2) under two controlled events over an 8.0-second timeline:
+Evaluates an active session initially bound to Link B (50 ms base RTT, 10.0.2.0/24) communicating with `ns_server` (10.0.3.2) under two controlled events over a 20.0-second timeline:
 
 ```
 Timeline (Seconds):
-0.0s                  3.0s   3.1s                 5.0s                              8.0s
+0.0s                  5.0s   5.2s                 10.0s                             20.0s
 ├── Nominal Link B ───┼─Burst─┼─── Nominal Link B ─┼── Persistent Structural Step ──┤
     (50 ms RTT)        (88 ms)     (50 ms RTT)         (95 ms RTT, SLA Breached)
 ```
 
-1. **Transient Spike ($t = 3.0$ s):** Link latency artificially jumps from 25 ms to 44 ms (RTT jumps to 88 ms) for exactly 100 ms (1 polling tick), then immediately returns to 50 ms at $t = 3.1$ s.
-   * **Policy 1 (Strict Raw, $K=1$):** Triggers a false handover at $t = 3.1$ s, unnecessarily executing a Netlink route switch to Link A and resetting transport state.
-   * **Policy 2 (Raw + Hysteresis, $K=2$):** Observes a single violation tick. Because the channel recovers on the next tick, the confirmation counter resets to 0 at $t = 3.2$ s. **Spike absorbed without false handover.**
+1. **Transient Spike ($t = 5.0$ s):** Link latency artificially jumps from 25 ms to 44 ms (RTT jumps to 88 ms) for 200 ms (2 polling ticks), then immediately returns to 50 ms at $t = 5.2$ s.
+   * **Policy 1 (Strict Raw, $K=1$):** Triggers a false handover at $t = 5.1$ s, unnecessarily executing a Netlink route switch to Link A and resetting transport state.
+   * **Policy 2 (Raw + Hysteresis, $K=2$):** Observes a single violation tick. Because the channel recovers on the next tick, the confirmation counter resets to 0 at $t = 5.2$ s. **Spike absorbed without false handover.**
    * **Policy 3 (Rolling Window Only, $N=3, K=1$):** Subject to outlier poisoning. If the spike is sufficiently elevated, the arithmetic mean $\text{Mean}(\mathcal{W}_3)$ is pulled above $\tau = 65$ ms, triggering an accidental handover on an isolated outlier.
    * **Policy 4 (Rolling Window + Hysteresis, $N=3, K=2$):** The rolling mean does not violate $\tau$ for 2 consecutive ticks. **Spike absorbed.**
 
-2. **Persistent Structural Degradation ($t = 5.0$ s):** Link latency permanently steps to 47.5 ms (RTT jumps permanently to 95 ms, violating the 65 ms SLA ceiling).
-   * **Policy 1:** Triggers route switch at $t = 5.1$ s (100 ms detection delay).
-   * **Policy 2:** Confirms degradation across 2 intervals and triggers route switch at $t = 5.2$ s (200 ms detection delay). **Pareto-Optimal Trade-off.**
-   * **Policy 3:** Moving average buffer fills and violates threshold at $t = 5.3$ s (300 ms detection delay).
-   * **Policy 4:** Window mean confirmed across 2 consecutive ticks, triggering at $t = 5.4$ s (400 ms detection delay).
+2. **Persistent Structural Degradation ($t = 10.0$ s):** Link latency permanently steps to 47.5 ms (RTT jumps permanently to 95 ms, violating the 65 ms SLA ceiling).
+   * **Policy 1:** Prematurely switched at $t=5.1$ s (false alarm).
+   * **Policy 2:** Confirms degradation across 2 intervals and triggers route switch at $t \approx 10.2$ s (200 ms detection delay). **Pareto-Optimal Trade-off.**
+   * **Policy 3:** Moving average buffer fills and violates threshold at $t \approx 10.3$ s (300 ms detection delay).
+   * **Policy 4:** Window mean confirmed across 2 consecutive ticks, triggering at $t \approx 10.4$ s (400 ms detection delay).
 
-* **Publication Visualization:** High-resolution 4-panel time-series figure showing raw RTT, rolling window averages, the $\tau = 65\text{ ms}$ SLA ceiling dashed line, and distinct star markers at the exact handover execution timestamps.
+* **Publication Visualization:** High-resolution 4-panel time-series figure showing raw RTT, rolling window averages, the $\tau = 65\text{ ms}$ SLA ceiling dashed line, and distinct markers at the exact handover execution timestamps.
 
 ---
 
@@ -303,6 +308,8 @@ NEW EXPERIMENTS/
 │   └── analyze_phase3.py                           # Plotting & statistical aggregation routine
 │
 ├── scripts/                                         # Testbed emulation drivers and orchestration tools
+│   ├── README.md                                    # Comprehensive testbed scripts & topology manual
+│   ├── setup_phase2_topology.sh                     # 3-namespace multi-backhaul topology setup & impairment injector
 │   ├── batch_runner.py                              # Automated multi-run testbed execution daemon
 │   ├── lftp-migration-test.sh                       # Core namespace, netlink & traffic control orchestration
 │   ├── cwnd_logger.sh                               # Kernel socket state polling routine via netlink (ss)
@@ -345,7 +352,20 @@ NEW EXPERIMENTS/
   * [journal_extension/journal_draft.md](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/journal_extension/journal_draft.md) — Stage 2: Comprehensive Journal Extension Draft
   * [archive/README.md](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/archive/README.md) — Manifest of Archived Documents & Prototype Code
 
+* **Phase 2 Telemetry & Steering Controller Engine:**
+  * [phase2_telemetry/README.md](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/phase2_telemetry/README.md) — Telemetry and Steering Controller Overview & Usage Guide
+  * [phase2_telemetry/telemetry_daemon.py](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/phase2_telemetry/telemetry_daemon.py) — 100ms lightweight raw ICMP prober, EWMA and sliding window tracking
+  * [phase2_telemetry/steering_controller.py](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/phase2_telemetry/steering_controller.py) — 2x2 policy matrix, atomic Netlink route replacement, and event logger
+
+* **Phase 3 Comparative Evaluation Suite:**
+  * [phase3_eval/README.md](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/phase3_eval/README.md) — Phase 3 Evaluation Harness Manual & Benchmark Guide
+  * [phase3_eval/run_hero_trace.py](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/phase3_eval/run_hero_trace.py) — Part A: Deterministic Micro-Benchmark Runner (Hero Trace)
+  * [phase3_eval/run_monte_carlo.py](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/phase3_eval/run_monte_carlo.py) — Part B: 120-Run Randomized Monte Carlo Stress-Tester
+  * [phase3_eval/analyze_phase3.py](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/phase3_eval/analyze_phase3.py) — Publication Figure Generator & LaTeX Table Aggregator
+
 * **Core Testbed Orchestration & Drivers:**
+  * [scripts/README.md](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/scripts/README.md) — Comprehensive Manual for Topology & Drivers
+  * [setup_phase2_topology.sh](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/scripts/setup_phase2_topology.sh) — 3-namespace network topology provisioner, policy router & dynamic impairment injector
   * [lftp-migration-test.sh](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/scripts/lftp-migration-test.sh) — Core network namespace setup, traffic control, and migration trigger
   * [batch_runner.py](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/scripts/batch_runner.py) — Automated iteration orchestrator and batch executor
   * [cwnd_logger.sh](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/scripts/cwnd_logger.sh) — Netlink socket sampler tracking TCP CWND and RTT dynamics
@@ -371,41 +391,42 @@ With Phase 1 (Platform Verification & Calibration) fully concluded across 1,520 
 │  • Validated O(1) Handover Invariance (ΔT ≈ 52-55 ms) and Mathis Loss Decay.                    │
 │                                           │                                                     │
 │                                           ▼                                                     │
-│  [MILESTONE 2: PHASE 2 STEERING ENGINE] - NEXT IMPLEMENTATION STEP                              │
-│  • Build `phase2_telemetry/telemetry_daemon.py`:                                                │
-│    - Non-intrusive 100 ms active ICMP ping prober across candidate interfaces.                  │
-│    - Circular buffer maintaining latest N=3 samples and temporal persistence counter (K=2).     │
-│  • Build `phase2_telemetry/steering_controller.py`:                                             │
+│  [MILESTONE 2: PHASE 2 STEERING ENGINE] - COMPLETED                                             │
+│  • Built `phase2_telemetry/telemetry_daemon.py`:                                                │
+│    - Non-intrusive 100 ms active ICMP raw socket prober across candidate interfaces.            │
+│    - FIFO buffer maintaining latest N=3 samples and temporal persistence counter (K=2).         │
+│  • Built `phase2_telemetry/steering_controller.py`:                                             │
 │    - Configurable switch selecting Policies 1, 2, 3, or 4 against threshold τ = 65 ms.          │
-│    - Netlink route replacement (`ip route replace default via 10.0.1.2 dev veth_fiber`).        │
+│    - Atomic Netlink route replacement (`ip route replace default via 10.0.1.2 dev veth_client_a`) │
+│      measured live with ~5.7 ms switching latency.                                              │
 │                                           │                                                     │
 │                                           ▼                                                     │
-│  [MILESTONE 3: PHASE 3 EVALUATION SUITE] - PLANNED BENCHMARKS                                   │
+│  [MILESTONE 3: PHASE 3 EVALUATION SUITE] - COMPLETED                                            │
 │  • Part A: Deterministic Hero Trace Runner (`phase3_eval/run_hero_trace.py`):                   │
-│    - Controlled Netem impairment injection at t = 3.0 s (transient) and t = 5.0 s (structural). │
-│    - Real-time logging of latency samples, policy trigger timestamps, and route switches.      │
+│    - 20.0s timeline: 5.0s baseline, 100ms micro-burst at t = 5.0-5.1s, step at t = 10.0s.       │
+│    - Policy 1 triggered false alarm at t = 5.011s; Policies 2, 3, 4 absorbed spike.             │
 │  • Part B: Monte Carlo Randomized Stress-Tester (`phase3_eval/run_monte_carlo.py`):             │
-│    - 120 automated trial iterations (30 runs per policy).                                       │
-│    - Poisson burst generator (λ = 0.4 s⁻¹) and random structural step arrivals.                 │
-│    - Aggregates false alarm ratios, route flapping counts, and SLA violation lag.               │
+│    - 120 automated trial iterations (30 runs per policy across 20.0s sessions).                 │
+│    - Poisson burst generator (λ = 0.5 s⁻¹) and random structural step arrivals.                 │
+│    - Policy 2 cut false alarms to 30.0% while achieving fast 109 ms detection lag.              │
 │                                           │                                                     │
 │                                           ▼                                                     │
-│  [MILESTONE 4: PAPER INTEGRATION & PLOTTING]                                                    │
-│  • Generate Publication Figures via `phase3_eval/analyze_phase3.py`:                            │
-│    - Hero trace timeline plot (RTT vs. Time with annotated policy trigger markers).             │
-│    - Pareto frontier curve (Detection Lag vs. False Alarm Rate across Policies 1-4).            │
-│    - Flapping and violation lag boxplots.                                                       │
-│  • Update `paper_draft.md` for Conference Initial Submission.                                   │
+│  [MILESTONE 4: PAPER INTEGRATION & PLOTTING] - COMPLETED                                        │
+│  • Generated Publication Figures via `phase3_eval/analyze_phase3.py`:                           │
+│    - Hero trace timeline plot (`plots/hero_trace_comparative.pdf` and `.png`).                  │
+│    - Pareto frontier curve (`plots/monte_carlo_pareto.pdf` and `.png`).                         │
+│    - Flapping and violation lag boxplots (`plots/monte_carlo_boxplots.pdf` and `.png`).         │
+│  • Updated `paper/main.tex` with Figure 3 and empirical Tables V & VI.                          │
 │                                                                                                 │
 └─────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 6.1 Planned Architecture for Phase 2 Software Modules
+### 6.1 Architecture for Phase 2 Software Modules (Completed)
 
 1. **`phase2_telemetry/telemetry_daemon.py` (Client-Side Active Prober):**
    * Operates inside `ns_client`.
    * Sends 100 ms lightweight active ICMP probes concurrently over `veth_fiber_c` (`10.0.1.0/24`) and `veth_cell_c` (`10.0.2.0/24`) toward `ns_server` (`10.0.3.2`).
-   * Evaluates link latency purely via ping, strictly isolating control-plane decision dynamics from background payload traffic.
+   * Evaluates link latency purely via raw ping sockets, strictly isolating control-plane decision dynamics from background payload traffic.
    * Maintains live data structures:
      * Raw sample: $RTT(t)$
      * Moving average buffer: $\text{Mean}(\mathcal{W}_N)$ for $N = 3$
@@ -418,23 +439,23 @@ With Phase 1 (Platform Verification & Calibration) fully concluded across 1,520 
      * **Policy 2:** $\text{If } RTT(t) > \tau \text{ for } 2 \text{ consecutive ticks} \implies \text{Trigger Handover}$
      * **Policy 3:** $\text{If } \text{Mean}(\mathcal{W}_3) > \tau \implies \text{Trigger Handover}$
      * **Policy 4:** $\text{If } \text{Mean}(\mathcal{W}_3) > \tau \text{ for } 2 \text{ consecutive ticks} \implies \text{Trigger Handover}$
-   * Issues atomic Netlink route replacements via `ip route replace default via 10.0.1.2 dev veth_fiber_c`.
+   * Issues atomic Netlink route replacements via `ip route replace default via 10.0.1.2 dev veth_fiber_c` (5.2--6.0 ms latency).
 
-### 6.2 Planned Execution Workflow for Phase 3 Benchmarks
+### 6.2 Execution Workflow for Phase 3 Benchmarks (Completed)
 
 1. **Part A: Hero Trace Execution (`phase3_eval/run_hero_trace.py`):**
    * Initializes `ns_router` with baseline Link B conditions (50 ms base RTT).
-   * Initiates continuous ICMP ping telemetry stream from `ns_client`.
-   * At $t = 3.0\text{ s}$, injects transient spike ($+38\text{ ms} \implies 88\text{ ms}$) for 100 ms, reverting at $t = 3.1\text{ s}$.
-   * At $t = 5.0\text{ s}$, injects permanent structural step ($+45\text{ ms} \implies 95\text{ ms}$).
+   * Initiates continuous ICMP ping telemetry stream from `ns_client` across 20.0s timeline.
+   * At $t = 5.0\text{ s}$, injects transient spike ($+38\text{ ms} \implies 88\text{ ms}$) for 100 ms, reverting at $t = 5.1\text{ s}$.
+   * At $t = 10.0\text{ s}$, injects permanent structural step ($+45\text{ ms} \implies 95\text{ ms}$).
    * Captures the decision responses of Policies 1, 2, 3, and 4 to verify spike absorption and reaction lag.
 
 2. **Part B: Monte Carlo Stress-Testing (`phase3_eval/run_monte_carlo.py`):**
-   * Loops through $N = 30$ iterations for each of the 4 policies (120 runs total).
+   * Loops through $N = 30$ iterations for each of the 4 policies (120 runs total) across 20.0s sessions.
    * Generates dynamic stochastic channel profiles on Link B:
      * Background Gaussian jitter: $\mathcal{N}(50\text{ ms}, 5^2)$.
-     * Poisson noise bursts: $\lambda = 0.4\text{ s}^{-1}$, durations $50\text{--}150\text{ ms}$, amplitudes $30\text{--}60\text{ ms}$.
-     * Random structural degradation step arriving uniformly between $t = 3.0\text{ s}$ and $t = 7.0\text{ s}$.
+     * Poisson noise bursts: $\lambda = 0.5\text{ s}^{-1}$, durations $80\text{--}150\text{ ms}$, amplitudes $32\text{--}55\text{ ms}$.
+     * Random structural degradation step arriving uniformly between $t = 6.0\text{ s}$ and $t = 14.0\text{ s}$.
    * Automatically parses logs into `ANALYSIS_RESULTS/PHASE3/` and computes:
      * Flapping frequency (handovers per run).
      * False positive ratio (switches triggered by transient noise).

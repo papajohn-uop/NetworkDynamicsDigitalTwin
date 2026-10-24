@@ -29,14 +29,14 @@ PLOTS_DIR = os.path.join(ROOT_DIR, "plots")
 os.makedirs(PLOTS_DIR, exist_ok=True)
 
 
-def plot_hero_trace(results_dir: str = RESULTS_DIR, plots_dir: str = PLOTS_DIR):
+def plot_hero_trace_5panel(results_dir: str = RESULTS_DIR, plots_dir: str = PLOTS_DIR):
     """
-    Generate Figure 3: Synchronized Comparative Telemetry Hero Trace (20.0s Timeline).
-    4 stacked subplots across t = 0 to 20s:
-      - Subplot 1: Link latency dynamics (Raw, EWMA, Rolling Mean, SLA ceiling)
-      - Subplot 2: Policy 1 (Strict Raw) premature false-alarm trigger
-      - Subplot 3: Policy 2 (Raw + Hysteresis) spike absorption & Pareto trigger
-      - Subplot 4: Policy 3 (Window) & Policy 4 (Window + Hysteresis)
+    Generate 5-Panel Hero Trace Figure:
+      - Subplot 1: Link latency dynamics (Raw RTT, Rolling Mean, EWMA SRTT, SLA ceiling, events)
+      - Subplot 2: Policy 1 (Strict Raw, K=1)
+      - Subplot 3: Policy 2 (Raw + Hysteresis, K=2)
+      - Subplot 4: Policy 3 (Rolling Window Average, N=3)
+      - Subplot 5: Policy 4 (Window + Hysteresis, N=3, K=2)
     """
     p1_file = os.path.join(results_dir, "hero_trace_policy_1.csv")
     p2_file = os.path.join(results_dir, "hero_trace_policy_2.csv")
@@ -44,7 +44,7 @@ def plot_hero_trace(results_dir: str = RESULTS_DIR, plots_dir: str = PLOTS_DIR):
     p4_file = os.path.join(results_dir, "hero_trace_policy_4.csv")
 
     if not all(os.path.exists(f) for f in [p1_file, p2_file, p3_file, p4_file]):
-        print("[WARN] One or more hero_trace CSV files missing. Skipping Hero Trace plot.")
+        print("[WARN] One or more hero_trace CSV files missing. Skipping 5-panel plot.")
         return
 
     df1 = pd.read_csv(p1_file)
@@ -52,10 +52,9 @@ def plot_hero_trace(results_dir: str = RESULTS_DIR, plots_dir: str = PLOTS_DIR):
     df3 = pd.read_csv(p3_file)
     df4 = pd.read_csv(p4_file)
 
-    fig, axes = plt.subplots(4, 1, figsize=(11, 10.5), sharex=True)
-    plt.subplots_adjust(hspace=0.25)
+    fig, axes = plt.subplots(5, 1, figsize=(11, 13.0), sharex=True)
+    plt.subplots_adjust(hspace=0.28)
 
-    # Global Style Setup
     sla_tau = 65.0
     c_blue = "#1f77b4"
     c_green = "#2ca02c"
@@ -63,31 +62,26 @@ def plot_hero_trace(results_dir: str = RESULTS_DIR, plots_dir: str = PLOTS_DIR):
     c_purple = "#9467bd"
     c_red = "#d62728"
 
-    # ==================== SUBPLOT 1: Channel Latency Dynamics ====================
+    # ==================== SUBPLOT 1: Channel Scenario ====================
     ax1 = axes[0]
     ax1.plot(df2["rel_time_s"], df2["rtt_sample"], color="#4a86e8", alpha=0.45, label="Raw Sample $RTT(t)$", lw=1.2)
     ax1.plot(df2["rel_time_s"], df2["rolling_mean"], color=c_blue, lw=2.0, label="Sliding Window Mean $\\mu_{\\mathcal{W}}$ ($N=3$)")
     ax1.plot(df2["rel_time_s"], df2["srtt"], color="#0b5394", lw=1.5, linestyle=":", label="Smoothed $SRTT$ (EWMA $\\alpha=0.125$)")
     ax1.axhline(sla_tau, color=c_red, linestyle="--", lw=1.8, label=f"SLA Ceiling $\\tau = {sla_tau:.0f}$ ms")
-
-    # Annotate transient burst and structural step
     ax1.axvspan(5.0, 5.1, color="#f4cccc", alpha=0.7, label="Transient Micro-Burst ($88$ ms)")
     ax1.axvspan(10.0, 20.0, color="#fce5cd", alpha=0.45, label="Structural Step ($95$ ms)")
-
-    ax1.set_ylabel("RTT (ms)", fontsize=11, fontweight="bold")
-    ax1.set_title("(a) Backhaul Link Dynamics: Injected Micro-Burst ($t=5.0$s) and Persistent Degradation ($t=10.0$s)", fontsize=12, fontweight="bold")
+    ax1.set_ylabel("RTT (ms)", fontsize=10.5, fontweight="bold")
+    ax1.set_title("(a) Channel Scenario: 100ms Micro-Burst ($t=5.0$s) and Persistent Degradation ($t=10.0$s)", fontsize=11.5, fontweight="bold")
     ax1.set_ylim(0, 115)
     ax1.grid(True, linestyle="--", alpha=0.5)
-    ax1.legend(loc="upper left", ncol=3, fontsize=9, framealpha=0.9)
+    ax1.legend(loc="upper left", ncol=3, fontsize=8.5, framealpha=0.9)
 
-    # ==================== SUBPLOT 2: Policy 1 (Strict Raw) ====================
+    # ==================== SUBPLOT 2: Policy 1 ====================
     ax2 = axes[1]
     ax2.plot(df1["rel_time_s"], df1["rtt_sample"], color=c_blue, lw=1.8, label="Policy 1 (Strict Raw, $K=1$) Active RTT")
     ax2.axhline(sla_tau, color=c_red, linestyle="--", lw=1.2, alpha=0.7)
     ax2.axvspan(5.0, 5.1, color="#f4cccc", alpha=0.5)
     ax2.axvspan(10.0, 20.0, color="#fce5cd", alpha=0.3)
-
-    # Find switch in Policy 1
     p1_switch = df1[df1["handover_executed"] == True]
     if not p1_switch.empty:
         sw_t = p1_switch.iloc[0]["rel_time_s"]
@@ -97,31 +91,26 @@ def plot_hero_trace(results_dir: str = RESULTS_DIR, plots_dir: str = PLOTS_DIR):
             f"[!] Premature False Trigger ($t={sw_t:.2f}$s)\nSwitches to Link A (4.3 ms)",
             xy=(sw_t, sw_rtt), xytext=(sw_t + 0.6, sw_rtt + 6),
             arrowprops=dict(facecolor=c_red, shrink=0.08, width=1.5, headwidth=6),
-            fontsize=9.5, fontweight="bold", color=c_red,
+            fontsize=9, fontweight="bold", color=c_red,
             bbox=dict(boxstyle="round,pad=0.3", fc="#fdf2f2", ec=c_red, lw=1)
         )
-
-    ax2.set_ylabel("RTT (ms)", fontsize=11, fontweight="bold")
+    ax2.set_ylabel("RTT (ms)", fontsize=10.5, fontweight="bold")
     ax2.set_title("(b) Policy 1 (Strict Raw): Unprotected Single Sample Causes Route Flapping on Micro-Burst", fontsize=11, fontweight="bold")
     ax2.set_ylim(0, 115)
     ax2.grid(True, linestyle="--", alpha=0.5)
-    ax2.legend(loc="upper right", fontsize=9)
+    ax2.legend(loc="upper right", fontsize=8.5)
 
-    # ==================== SUBPLOT 3: Policy 2 (Raw + Hysteresis) ====================
+    # ==================== SUBPLOT 3: Policy 2 ====================
     ax3 = axes[2]
     ax3.plot(df2["rel_time_s"], df2["rtt_sample"], color=c_green, lw=2.0, label="Policy 2 (Raw + Hysteresis, $K=2$) Active RTT")
     ax3.axhline(sla_tau, color=c_red, linestyle="--", lw=1.2, alpha=0.7)
     ax3.axvspan(5.0, 5.1, color="#f4cccc", alpha=0.5)
     ax3.axvspan(10.0, 20.0, color="#fce5cd", alpha=0.3)
-
-    # Annotate spike absorbed
     ax3.text(
         5.4, 78, "[+] Micro-Burst Absorbed\n($c_{\\mathrm{raw}}=1 \\to 0$, no switch)",
-        fontsize=9, fontweight="bold", color="#1e4620",
+        fontsize=8.5, fontweight="bold", color="#1e4620",
         bbox=dict(boxstyle="round,pad=0.25", fc="#e6f4ea", ec=c_green, lw=1)
     )
-
-    # Find switch in Policy 2
     p2_switch = df2[df2["handover_executed"] == True]
     if not p2_switch.empty:
         sw_t = p2_switch.iloc[0]["rel_time_s"]
@@ -129,61 +118,221 @@ def plot_hero_trace(results_dir: str = RESULTS_DIR, plots_dir: str = PLOTS_DIR):
         lag_ms = int(max(0, (sw_t - 10.0) * 1000))
         ax3.scatter([sw_t], [sw_rtt], color=c_green, s=140, zorder=5, marker="*", edgecolors="black", lw=1.5)
         ax3.annotate(
-            f"[*] Pareto-Optimal Trigger ($t={sw_t:.2f}$s, $T_{{\\mathrm{{detect}}}}={lag_ms}$ms)\nClean Re-Anchoring to Link A",
-            xy=(sw_t, sw_rtt), xytext=(sw_t + 0.6, sw_rtt - 22),
+            f"Policy 2 Trigger ($t={sw_t:.2f}$s, $T_{{\\mathrm{{detect}}}}={lag_ms}$ms)\nRe-Anchored to Link A",
+            xy=(sw_t, sw_rtt), xytext=(sw_t + 0.6, sw_rtt - 24),
             arrowprops=dict(facecolor=c_green, shrink=0.08, width=1.5, headwidth=6),
-            fontsize=9.5, fontweight="bold", color="#1e4620",
+            fontsize=9, fontweight="bold", color="#1e4620",
             bbox=dict(boxstyle="round,pad=0.3", fc="#e6f4ea", ec=c_green, lw=1)
         )
-
-    ax3.set_ylabel("RTT (ms)", fontsize=11, fontweight="bold")
-    ax3.set_title("(c) Policy 2 (Raw + Hysteresis): Pareto-Optimal Inflection (Zero False Alarms, Fast SLA Restoration)", fontsize=11, fontweight="bold")
+    ax3.set_ylabel("RTT (ms)", fontsize=10.5, fontweight="bold")
+    ax3.set_title("(c) Policy 2 (Raw + Hysteresis, $K=2$): Temporal Confirmation Filters Micro-Burst and Triggers on Step", fontsize=11, fontweight="bold")
     ax3.set_ylim(0, 115)
     ax3.grid(True, linestyle="--", alpha=0.5)
-    ax3.legend(loc="upper right", fontsize=9)
+    ax3.legend(loc="upper right", fontsize=8.5)
 
-    # ==================== SUBPLOT 4: Policy 3 & 4 (Window Approaches) ====================
+    # ==================== SUBPLOT 4: Policy 3 ====================
     ax4 = axes[3]
-    ax4.plot(df3["rel_time_s"], df3["rtt_sample"], color=c_orange, lw=1.6, label="Policy 3 (Rolling Window Only, $N=3$)")
-    ax4.plot(df4["rel_time_s"], df4["rtt_sample"], color=c_purple, lw=1.6, linestyle="--", label="Policy 4 (Window + Hysteresis, $N=3, K=2$)")
+    ax4.plot(df3["rel_time_s"], df3["rtt_sample"], color=c_orange, lw=1.8, label="Policy 3 (Rolling Window Average, $N=3$) Active RTT")
     ax4.axhline(sla_tau, color=c_red, linestyle="--", lw=1.2, alpha=0.7)
     ax4.axvspan(5.0, 5.1, color="#f4cccc", alpha=0.5)
     ax4.axvspan(10.0, 20.0, color="#fce5cd", alpha=0.3)
-
+    ax4.text(
+        5.4, 78, "[+] Diluted by Window\n($\\mu_{\\mathcal{W}} = 63.3 < 65$ ms)",
+        fontsize=8.5, fontweight="bold", color="#8a4200",
+        bbox=dict(boxstyle="round,pad=0.25", fc="#fdf5e6", ec=c_orange, lw=1)
+    )
     p3_switch = df3[df3["handover_executed"] == True]
     if not p3_switch.empty:
         sw_t = p3_switch.iloc[0]["rel_time_s"]
-        ax4.scatter([sw_t], [p3_switch.iloc[0]["rtt_sample"]], color=c_orange, s=100, zorder=5, marker="o", edgecolors="black")
+        sw_rtt = p3_switch.iloc[0]["rtt_sample"]
+        lag_ms = int(max(0, (sw_t - 10.0) * 1000))
+        ax4.scatter([sw_t], [sw_rtt], color=c_orange, s=110, zorder=5, marker="o", edgecolors="black", lw=1.5)
+        ax4.annotate(
+            f"Policy 3 Trigger ($t={sw_t:.2f}$s, $T_{{\\mathrm{{detect}}}}={lag_ms}$ms)",
+            xy=(sw_t, sw_rtt), xytext=(sw_t + 0.6, sw_rtt - 22),
+            arrowprops=dict(facecolor=c_orange, shrink=0.08, width=1.5, headwidth=6),
+            fontsize=9, fontweight="bold", color="#8a4200",
+            bbox=dict(boxstyle="round,pad=0.25", fc="#fdf5e6", ec=c_orange, lw=1)
+        )
+    ax4.set_ylabel("RTT (ms)", fontsize=10.5, fontweight="bold")
+    ax4.set_title("(d) Policy 3 (Rolling Window Average): FIFO Smoothing Suppresses Noise with Moderate Reaction Lag", fontsize=11, fontweight="bold")
+    ax4.set_ylim(0, 115)
+    ax4.grid(True, linestyle="--", alpha=0.5)
+    ax4.legend(loc="upper right", fontsize=8.5)
 
+    # ==================== SUBPLOT 5: Policy 4 ====================
+    ax5 = axes[4]
+    ax5.plot(df4["rel_time_s"], df4["rtt_sample"], color=c_purple, lw=1.8, label="Policy 4 (Window + Hysteresis, $N=3, K=2$) Active RTT")
+    ax5.axhline(sla_tau, color=c_red, linestyle="--", lw=1.2, alpha=0.7)
+    ax5.axvspan(5.0, 5.1, color="#f4cccc", alpha=0.5)
+    ax5.axvspan(10.0, 20.0, color="#fce5cd", alpha=0.3)
     p4_switch = df4[df4["handover_executed"] == True]
     if not p4_switch.empty:
         sw_t = p4_switch.iloc[0]["rel_time_s"]
+        sw_rtt = p4_switch.iloc[0]["rtt_sample"]
         lag_ms = int(max(0, (sw_t - 10.0) * 1000))
-        ax4.scatter([sw_t], [p4_switch.iloc[0]["rtt_sample"]], color=c_purple, s=120, zorder=5, marker="s", edgecolors="black")
-        ax4.annotate(
+        ax5.scatter([sw_t], [sw_rtt], color=c_purple, s=120, zorder=5, marker="s", edgecolors="black", lw=1.5)
+        ax5.annotate(
             f"Policy 4 Trigger ($t={sw_t:.2f}$s, $T_{{\\mathrm{{detect}}}}={lag_ms}$ms)",
-            xy=(sw_t, p4_switch.iloc[0]["rtt_sample"]), xytext=(sw_t + 0.6, 30),
+            xy=(sw_t, sw_rtt), xytext=(sw_t + 0.6, sw_rtt - 22),
             arrowprops=dict(facecolor=c_purple, shrink=0.08, width=1.5, headwidth=6),
             fontsize=9, fontweight="bold", color=c_purple,
             bbox=dict(boxstyle="round,pad=0.25", fc="#f3e8fd", ec=c_purple, lw=1)
         )
+    ax5.set_xlabel("Elapsed Time (Seconds)", fontsize=11, fontweight="bold")
+    ax5.set_ylabel("RTT (ms)", fontsize=10.5, fontweight="bold")
+    ax5.set_title("(e) Policy 4 (Window + Hysteresis): Maximum Conservative Filtering Resilience", fontsize=11, fontweight="bold")
+    ax5.set_ylim(0, 115)
+    ax5.set_xlim(0, 20.0)
+    ax5.grid(True, linestyle="--", alpha=0.5)
+    ax5.legend(loc="upper right", fontsize=8.5)
 
-    ax4.set_xlabel("Elapsed Time (Seconds)", fontsize=11, fontweight="bold")
-    ax4.set_ylabel("RTT (ms)", fontsize=11, fontweight="bold")
-    ax4.set_title("(d) Window-Based Policies: Maximum Filtering Resilience at the Expense of Cumulative Detection Lag", fontsize=11, fontweight="bold")
-    ax4.set_ylim(0, 115)
-    ax4.set_xlim(0, 20.0)
-    ax4.grid(True, linestyle="--", alpha=0.5)
-    ax4.legend(loc="upper right", fontsize=9)
-
-    # Save High-Res PNG and Vector PDF
-    png_path = os.path.join(plots_dir, "hero_trace_comparative.png")
-    pdf_path = os.path.join(plots_dir, "hero_trace_comparative.pdf")
+    png_path = os.path.join(plots_dir, "hero_trace_5panel.png")
+    pdf_path = os.path.join(plots_dir, "hero_trace_5panel.pdf")
     plt.savefig(png_path, dpi=300, bbox_inches="tight")
     plt.savefig(pdf_path, bbox_inches="tight")
     plt.close()
 
-    print(f"[SUCCESS] Generated Hero Trace figures: {png_path} and {pdf_path}")
+    print(f"[SUCCESS] Generated 5-Panel Hero Trace: {png_path} and {pdf_path}")
+
+
+def plot_hero_trace_compact(results_dir: str = RESULTS_DIR, plots_dir: str = PLOTS_DIR):
+    """
+    Generate 1-Plot Compact Unified Hero Trace:
+      - Overlays all 4 policies on a single space-saving figure with the channel baseline.
+      - Uses distinct line styles, colors, and trigger markers to avoid clutter.
+    """
+    p1_file = os.path.join(results_dir, "hero_trace_policy_1.csv")
+    p2_file = os.path.join(results_dir, "hero_trace_policy_2.csv")
+    p3_file = os.path.join(results_dir, "hero_trace_policy_3.csv")
+    p4_file = os.path.join(results_dir, "hero_trace_policy_4.csv")
+
+    if not all(os.path.exists(f) for f in [p1_file, p2_file, p3_file, p4_file]):
+        print("[WARN] One or more hero_trace CSV files missing. Skipping compact plot.")
+        return
+
+    df1 = pd.read_csv(p1_file)
+    df2 = pd.read_csv(p2_file)
+    df3 = pd.read_csv(p3_file)
+    df4 = pd.read_csv(p4_file)
+
+    fig, ax = plt.subplots(figsize=(10.5, 5.8))
+
+    sla_tau = 65.0
+    c_blue = "#1f77b4"
+    c_green = "#2ca02c"
+    c_orange = "#ff7f0e"
+    c_purple = "#9467bd"
+    c_red = "#d62728"
+
+    # Background shaded event regions
+    ax.axvspan(5.0, 5.1, color="#f4cccc", alpha=0.75, label="Transient Micro-Burst ($88$ ms, 100ms)")
+    ax.axvspan(10.0, 20.0, color="#fce5cd", alpha=0.45, label="Persistent Structural Step ($95$ ms)")
+    ax.axhline(sla_tau, color=c_red, linestyle="--", lw=1.8, label=f"SLA Ceiling $\\tau = {sla_tau:.0f}$ ms")
+
+
+    # Plot 4 Policy Trajectories with distinct line styles
+    ax.plot(df1["rel_time_s"], df1["rtt_sample"], color=c_blue, lw=1.8, linestyle="-", label="Policy 1 (Strict Raw, $K=1$)")
+    ax.plot(df2["rel_time_s"], df2["rtt_sample"], color=c_green, lw=2.4, linestyle="-", label="Policy 2 (Raw + Hysteresis, $K=2$)")
+    ax.plot(df3["rel_time_s"], df3["rtt_sample"], color=c_orange, lw=1.8, linestyle="-.", label="Policy 3 (Rolling Window Average, $N=3$)")
+    ax.plot(df4["rel_time_s"], df4["rtt_sample"], color=c_purple, lw=1.8, linestyle="--", label="Policy 4 (Window + Hysteresis, $N=3, K=2$)")
+
+    # Policy 1 False Trigger Marker
+    p1_switch = df1[df1["handover_executed"] == True]
+    if not p1_switch.empty:
+        sw_t = p1_switch.iloc[0]["rel_time_s"]
+        sw_rtt = p1_switch.iloc[0]["rtt_sample"]
+        ax.scatter([sw_t], [sw_rtt], color=c_red, s=130, zorder=6, marker="X", edgecolors="black", lw=1.5)
+        ax.annotate(
+            f"[!] P1 False Trigger ($t={sw_t:.2f}$s)\nPremature Switch to Link A",
+            xy=(sw_t, sw_rtt), xytext=(sw_t - 4.5, 98),
+            arrowprops=dict(facecolor=c_red, shrink=0.08, width=1.5, headwidth=6),
+            fontsize=8.8, fontweight="bold", color=c_red,
+            bbox=dict(boxstyle="round,pad=0.25", fc="#fdf2f2", ec=c_red, lw=1.2)
+        )
+
+    # Note that Policies 2, 3, 4 absorbed the micro-burst
+    ax.text(
+        5.4, 73, "[+] Micro-Burst Filtered\n(Policies 2, 3, 4 remain on B)",
+        fontsize=8.2, fontweight="bold", color="#1e4620",
+        bbox=dict(boxstyle="round,pad=0.25", fc="#e6f4ea", ec=c_green, lw=1)
+    )
+
+    # Policy 2 Trigger Marker
+    p2_switch = df2[df2["handover_executed"] == True]
+    if not p2_switch.empty:
+        sw_t = p2_switch.iloc[0]["rel_time_s"]
+        sw_rtt = p2_switch.iloc[0]["rtt_sample"]
+        lag_ms = int(max(0, (sw_t - 10.0) * 1000))
+        ax.scatter([sw_t], [sw_rtt], color=c_green, s=160, zorder=6, marker="*", edgecolors="black", lw=1.5)
+        ax.annotate(
+            f"P2 Trigger ($t={sw_t:.2f}$s, $T={lag_ms}$ms)\nRe-Anchored to Link A",
+            xy=(sw_t, sw_rtt), xytext=(sw_t + 1.2, 92),
+            arrowprops=dict(facecolor=c_green, shrink=0.08, width=1.5, headwidth=6),
+            fontsize=8.8, fontweight="bold", color="#1e4620",
+            bbox=dict(boxstyle="round,pad=0.25", fc="#e6f4ea", ec=c_green, lw=1.2)
+        )
+
+    # Policy 3 Trigger Marker
+    p3_switch = df3[df3["handover_executed"] == True]
+    if not p3_switch.empty:
+        sw_t = p3_switch.iloc[0]["rel_time_s"]
+        sw_rtt = p3_switch.iloc[0]["rtt_sample"]
+        lag_ms = int(max(0, (sw_t - 10.0) * 1000))
+        ax.scatter([sw_t], [sw_rtt], color=c_orange, s=110, zorder=6, marker="o", edgecolors="black", lw=1.5)
+        ax.annotate(
+            f"P3 Trigger ($t={sw_t:.2f}$s, $T={lag_ms}$ms)",
+            xy=(sw_t, sw_rtt), xytext=(sw_t + 1.2, 60),
+            arrowprops=dict(facecolor=c_orange, shrink=0.08, width=1.5, headwidth=6),
+            fontsize=8.5, fontweight="bold", color="#8a4200",
+            bbox=dict(boxstyle="round,pad=0.22", fc="#fdf5e6", ec=c_orange, lw=1)
+        )
+
+    # Policy 4 Trigger Marker
+    p4_switch = df4[df4["handover_executed"] == True]
+    if not p4_switch.empty:
+        sw_t = p4_switch.iloc[0]["rel_time_s"]
+        sw_rtt = p4_switch.iloc[0]["rtt_sample"]
+        lag_ms = int(max(0, (sw_t - 10.0) * 1000))
+        ax.scatter([sw_t], [sw_rtt], color=c_purple, s=110, zorder=6, marker="s", edgecolors="black", lw=1.5)
+        ax.annotate(
+            f"P4 Trigger ($t={sw_t:.2f}$s, $T={lag_ms}$ms)",
+            xy=(sw_t, sw_rtt), xytext=(sw_t + 1.2, 30),
+            arrowprops=dict(facecolor=c_purple, shrink=0.08, width=1.5, headwidth=6),
+            fontsize=8.5, fontweight="bold", color=c_purple,
+            bbox=dict(boxstyle="round,pad=0.22", fc="#f3e8fd", ec=c_purple, lw=1)
+        )
+
+    ax.set_xlabel("Elapsed Time (Seconds)", fontsize=11, fontweight="bold")
+    ax.set_ylabel("Active Path RTT (ms)", fontsize=11, fontweight="bold")
+    ax.set_title("Synchronized Flow Steering Evaluation across Policies 1-4 (20.0s Timeline)", fontsize=12, fontweight="bold")
+    ax.set_xlim(0, 20.0)
+    ax.set_ylim(0, 135)
+    ax.grid(True, linestyle="--", alpha=0.5)
+    ax.legend(loc="upper right", ncol=2, fontsize=8.5, framealpha=0.92)
+
+    png_path = os.path.join(plots_dir, "hero_trace_compact.png")
+    pdf_path = os.path.join(plots_dir, "hero_trace_compact.pdf")
+    plt.savefig(png_path, dpi=300, bbox_inches="tight")
+    plt.savefig(pdf_path, bbox_inches="tight")
+    plt.close()
+
+    print(f"[SUCCESS] Generated 1-Plot Compact Hero Trace: {png_path} and {pdf_path}")
+
+
+def plot_hero_trace(results_dir: str = RESULTS_DIR, plots_dir: str = PLOTS_DIR):
+    """Generate both 5-panel and compact Hero Trace figures."""
+    plot_hero_trace_5panel(results_dir, plots_dir)
+    plot_hero_trace_compact(results_dir, plots_dir)
+    # Also save the 5-panel as hero_trace_comparative for full reference
+    src_pdf = os.path.join(plots_dir, "hero_trace_5panel.pdf")
+    dst_pdf = os.path.join(plots_dir, "hero_trace_comparative.pdf")
+    src_png = os.path.join(plots_dir, "hero_trace_5panel.png")
+    dst_png = os.path.join(plots_dir, "hero_trace_comparative.png")
+    if os.path.exists(src_pdf):
+        import shutil
+        shutil.copyfile(src_pdf, dst_pdf)
+        shutil.copyfile(src_png, dst_png)
 
 
 def plot_monte_carlo_pareto(results_dir: str = RESULTS_DIR, plots_dir: str = PLOTS_DIR):
@@ -398,17 +547,17 @@ def print_paper_tables(results_dir: str = RESULTS_DIR):
     for key, name in mapping.items():
         if key in summary:
             s = summary[key]
-            fa = f"{s['false_alarm_ratio_pct']:.1f} \\pm {s['false_alarm_ratio_std']:.1f}\\%"
-            lag = f"{s['detection_lag_mean_ms']:.0f} \\pm {s['detection_lag_std_ms']:.0f}"
-            ho = f"{s['handovers_per_run_mean']:.1f} \\pm {s['handovers_per_run_std']:.1f}"
-            viol = f"{s['sla_viol_duration_mean_ms']:.0f} \\pm {s['sla_viol_duration_std_ms']:.0f}"
+            fa = f"${s['false_alarm_ratio_pct']:.1f} \\pm {s['false_alarm_ratio_std']:.1f}\\%$"
+            lag = f"${s['detection_lag_mean_ms']:.0f} \\pm {s['detection_lag_std_ms']:.0f}$"
+            ho = f"${s['handovers_per_run_mean']:.1f} \\pm {s['handovers_per_run_std']:.1f}$"
+            viol = f"${s['sla_viol_duration_mean_ms']:.0f} \\pm {s['sla_viol_duration_std_ms']:.0f}$"
             if key == "RAW_HYSTERESIS":
                 fa = f"\\textbf{{{fa}}}"
                 ho = f"\\textbf{{{ho}}}"
                 viol = f"\\textbf{{{viol}}}"
             elif key == "WINDOW_HYSTERESIS":
                 fa = f"\\textbf{{{fa}}}"
-            print(f"{name:<24} & {fa:<20} & {lag:<18} & {ho:<16} & {viol} \\\\")
+            print(f"{name:<24} & {fa:<24} & {lag:<18} & {ho:<16} & {viol} \\\\")
 
     print(r"""\bottomrule
 \end{tabular}
