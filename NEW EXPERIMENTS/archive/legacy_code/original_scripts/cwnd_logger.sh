@@ -13,10 +13,10 @@ if [ ! -s "$OUTPUT_FILE" ]; then
     echo "timestamp,session_type,cwnd_segments" > "$OUTPUT_FILE"
 fi
 
-echo "🚀 Starting TCP cwnd logging in right-ns (sender side)..."
-echo "📊 Output file: $OUTPUT_FILE"
-echo "⏱️  Polling interval: ${POLL_INTERVAL}s"
-echo "🏷️  Session label mode: $SESSION_LABEL"
+echo "[START] Starting TCP cwnd logging in right-ns (sender side)..."
+echo "[METRICS] Output file: $OUTPUT_FILE"
+echo "[TIME]  Polling interval: ${POLL_INTERVAL}s"
+echo "[LABEL]  Session label mode: $SESSION_LABEL"
 
 # Handle shutdown signals gracefully
 cleanup() {

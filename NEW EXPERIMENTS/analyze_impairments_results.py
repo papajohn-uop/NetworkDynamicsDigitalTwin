@@ -717,7 +717,7 @@ def main():
     plots_dir = os.path.join(repo_dir, "plots", "impairments")
 
     print("\n" + "=" * 80)
-    print("🔬 COMPREHENSIVE IMPAIRMENTS ANALYSIS: EXPERIMENT 3 (CUBIC) & EXPERIMENT 4 (RENO)")
+    print("[ANALYSIS] COMPREHENSIVE IMPAIRMENTS ANALYSIS: EXPERIMENT 3 (CUBIC) & EXPERIMENT 4 (RENO)")
     print("=" * 80)
 
     # 1. Load Experiment 3 (CUBIC)

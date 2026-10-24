@@ -69,7 +69,7 @@ FILE_SIZE_MB=${FILE_SIZE_MB:-100}
 # Normalize and validate CWND_MODE (reno or cubic, default cubic)
 CWND_MODE=$(echo "${CWND_MODE:-cubic}" | tr '[:upper:]' '[:lower:]')
 if [[ "$CWND_MODE" != "reno" && "$CWND_MODE" != "cubic" ]]; then
-    echo "⚠️ Warning: Unsupported cwnd mode '$CWND_MODE'. Falling back to 'cubic'."
+    echo "[WARNING] Warning: Unsupported cwnd mode '$CWND_MODE'. Falling back to 'cubic'."
     CWND_MODE="cubic"
 fi
 
@@ -290,7 +290,7 @@ ip netns exec $NS_LEFT lftp -c "
 " &
 LFTP_PID=$!
 
-echo "⏳ Monitoring download progress... Will halt at 50% (~$((TARGET_HALF_BYTES / 1024 / 1024)) MB)"
+echo "[WAIT] Monitoring download progress... Will halt at 50% (~$((TARGET_HALF_BYTES / 1024 / 1024)) MB)"
 while true; do
     if ! ps -p $LFTP_PID > /dev/null; then
         echo " Error: lftp process died before reaching 50% threshold."
@@ -310,7 +310,7 @@ while true; do
     sleep 0.05
 done
 
-echo "🔌 HARD FAILOVER: Destroying Subnet 1 Link  -> Activating Subnet 2 Link "
+echo "[FAILOVER] HARD FAILOVER: Destroying Subnet 1 Link  -> Activating Subnet 2 Link "
 ip -n $NS_LEFT link set veth-left1 down
 ip -n $NS_RIGHT link set veth-right1 down
 
@@ -366,10 +366,10 @@ wait $CWND_LOGGER_PID 2>/dev/null || true
 
 END_BASELINE=$(date +%s.%N)
 TOTAL_BASELINE=$(echo "$END_BASELINE - $START_BASELINE" | bc)
-echo "✅ Baseline run finished!"
+echo "[SUCCESS] Baseline run finished!"
 
 # ==================== CLEANUP SERVER & TEST FILES ====================
-echo "🧹 Tearing down background FTP server and cleaning temporary files..."
+echo "[CLEANUP] Tearing down background FTP server and cleaning temporary files..."
 kill $FTP_SERVER_PID 2>/dev/null || true
 pkill -f "pyftpdlib -p $PORT" || true
 rm -f "$FILENAME" "migrated_$FILENAME" "baseline_$FILENAME" 2>/dev/null || true
@@ -399,13 +399,13 @@ chmod -R 777 "$OUTPUT_DIR"
 
 # ==================== FINAL TERMINAL REPORT ====================
 echo -e "\n============================================="
-echo "📊 EXPERIMENT RESULTS ($RATE | Latency: $D_LATENCY | Jitter: $D_JITTER | Loss: $D_LOSS | Mode: $CWND_MODE | FileSize: ${FILE_SIZE_MB}MB)"
+echo "[METRICS] EXPERIMENT RESULTS ($RATE | Latency: $D_LATENCY | Jitter: $D_JITTER | Loss: $D_LOSS | Mode: $CWND_MODE | FileSize: ${FILE_SIZE_MB}MB)"
 echo "============================================="
 echo -e "Uninterrupted Baseline Time : \033[1;32m${TOTAL_BASELINE} seconds\033[0m"
 echo -e "Stopped & Migrated Path Time: \033[1;31m${TOTAL_MIGRATE} seconds\033[0m"
 echo -e "Total Migration Overhead    : \033[1;33m${OVERHEAD} seconds\033[0m"
 echo "============================================="
-echo "📝 Data recorded inside ${OUTPUT_DIR}/"
-echo "   ➡️  $CSV_FILE (Appended)"
-echo "   ➡️  $CWND_FILE (CWND Telemetry)"
+echo "[LOG] Data recorded inside ${OUTPUT_DIR}/"
+echo "   ->  $CSV_FILE (Appended)"
+echo "   ->  $CWND_FILE (CWND Telemetry)"
 echo "============================================="

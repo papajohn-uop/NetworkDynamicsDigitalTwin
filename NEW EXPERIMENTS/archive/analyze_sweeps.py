@@ -196,7 +196,7 @@ def print_latency_table(items):
     sorted_items = sorted(items, key=lambda x: (x["metadata"]["file_size_mb"], x["metadata"]["latency_ms"]))
 
     print("\n" + "=" * 115)
-    print("⏱️  LATENCY SWEEP RESULTS (Loss: 0%, Jitter: 0ms, Rate: 50Mbit/s)")
+    print("[TIME]  LATENCY SWEEP RESULTS (Loss: 0%, Jitter: 0ms, Rate: 50Mbit/s)")
     print("=" * 115)
     header = (
         f"{'One-Way Latency':<16} | {'RTT (approx)':<14} | {'Size':<6} | "
@@ -226,7 +226,7 @@ def print_loss_table(items):
     sorted_items = sorted(items, key=lambda x: (x["metadata"]["file_size_mb"], x["metadata"]["loss_pct"]))
 
     print("\n" + "=" * 115)
-    print("📉 PACKET LOSS SWEEP RESULTS (Latency: 20ms, Jitter: 0ms, Rate: 50Mbit/s)")
+    print("[TREND] PACKET LOSS SWEEP RESULTS (Latency: 20ms, Jitter: 0ms, Rate: 50Mbit/s)")
     print("=" * 115)
     header = (
         f"{'Packet Loss':<14} | {'Size':<6} | {'Goodput Base':<14} | "
@@ -256,7 +256,7 @@ def print_jitter_table(items):
     sorted_items = sorted(items, key=lambda x: (x["metadata"]["file_size_mb"], x["metadata"]["jitter_ms"]))
 
     print("\n" + "=" * 115)
-    print("🔀 LATENCY JITTER SWEEP RESULTS (Latency: 40ms, Loss: 0%, Rate: 50Mbit/s)")
+    print("[JITTER] LATENCY JITTER SWEEP RESULTS (Latency: 40ms, Loss: 0%, Rate: 50Mbit/s)")
     print("=" * 115)
     header = (
         f"{'Jitter':<14} | {'Base Latency':<14} | {'Size':<6} | "
@@ -338,7 +338,7 @@ def plot_latency_sweep(items, output_png_path):
     os.makedirs(os.path.dirname(os.path.abspath(output_png_path)), exist_ok=True)
     plt.savefig(output_png_path, dpi=300)
     plt.close(fig)
-    print(f"📈 Latency Sweep Analysis Chart saved: {output_png_path}")
+    print(f"[CHART] Latency Sweep Analysis Chart saved: {output_png_path}")
 
 def plot_loss_sweep(items, output_png_path):
     """
@@ -394,7 +394,7 @@ def plot_loss_sweep(items, output_png_path):
     os.makedirs(os.path.dirname(os.path.abspath(output_png_path)), exist_ok=True)
     plt.savefig(output_png_path, dpi=300)
     plt.close(fig)
-    print(f"📈 Loss Sweep Analysis Chart saved: {output_png_path}")
+    print(f"[CHART] Loss Sweep Analysis Chart saved: {output_png_path}")
 
 def plot_jitter_sweep(items, output_png_path):
     """
@@ -447,7 +447,7 @@ def plot_jitter_sweep(items, output_png_path):
     os.makedirs(os.path.dirname(os.path.abspath(output_png_path)), exist_ok=True)
     plt.savefig(output_png_path, dpi=300)
     plt.close(fig)
-    print(f"📈 Jitter Sweep Analysis Chart saved: {output_png_path}")
+    print(f"[CHART] Jitter Sweep Analysis Chart saved: {output_png_path}")
 
 # ==============================================================================
 # 6. CONSOLIDATED SUMMARY CSV EXPORT
@@ -519,7 +519,7 @@ def main():
 
     exp_dir = os.path.join(base_dir, target) if not os.path.isabs(target) else target
 
-    print(f"\n🚀 Running Parametric Sweeps & Scenario Analysis on: {os.path.basename(exp_dir)}...")
+    print(f"\n[START] Running Parametric Sweeps & Scenario Analysis on: {os.path.basename(exp_dir)}...")
 
     grouped = load_sweep_results(exp_dir)
 

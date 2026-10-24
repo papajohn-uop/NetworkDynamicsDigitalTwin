@@ -213,7 +213,7 @@ def print_results_table(results_list, title="EXPERIMENT RESULTS SUMMARY"):
     sorted_items = sorted(results_list, key=lambda x: x["metadata"]["file_size_mb"])
 
     print("\n" + "=" * 132)
-    print(f"📊 {title} (Detailed Statistical Profile)")
+    print(f"[METRICS] {title} (Detailed Statistical Profile)")
     print("=" * 132)
     header = (
         f"{'Size':<6} | {'Baseline (Mean ± Std)':<23} | {'Migration (Mean ± Std)':<23} | "
@@ -299,7 +299,7 @@ def save_summary_csv(results_list, output_filepath):
                 "relative_overhead_pct": f"{rel_pct:.2f}"
             })
 
-    print(f"📄 Summary CSV saved to: {output_filepath}")
+    print(f" Summary CSV saved to: {output_filepath}")
 
 def save_table_format_csv(results_list, output_filepath):
     """
@@ -368,7 +368,7 @@ def save_table_format_csv(results_list, output_filepath):
                 "migration_std_sec": f"{migr['std']:.4f}"
             })
 
-    print(f"📊 Statistical Profile Table CSV saved to: {output_filepath}")
+    print(f"[METRICS] Statistical Profile Table CSV saved to: {output_filepath}")
 
 def save_cubic_vs_reno_comparison_table_csv(exp1_results, exp2_results, output_filepath):
     """
@@ -440,7 +440,7 @@ def save_cubic_vs_reno_comparison_table_csv(exp1_results, exp2_results, output_f
                 "reno_overhead_mean_ms": f"{o2['mean'] * 1000.0:.2f}"
             })
 
-    print(f"⚖️ Comparison Table CSV saved to: {output_filepath}")
+    print(f" Comparison Table CSV saved to: {output_filepath}")
 
 def save_overall_metrics_summary_csv(exp1_results, exp2_results, output_filepath):
     """
@@ -549,7 +549,7 @@ def save_overall_metrics_summary_csv(exp1_results, exp2_results, output_filepath
         writer.writeheader()
         writer.writerows(rows)
 
-    print(f"📋 Overall Metrics Summary CSV saved to: {output_filepath}")
+    print(f" Overall Metrics Summary CSV saved to: {output_filepath}")
 
 # ==============================================================================
 # 5. PLOTTING FUNCTIONS
@@ -593,7 +593,7 @@ def plot_baseline_vs_migration(results_list, title, output_png_path):
     os.makedirs(os.path.dirname(os.path.abspath(output_png_path)), exist_ok=True)
     plt.savefig(output_png_path, dpi=300)
     plt.close(fig)
-    print(f"📈 Chart saved: {output_png_path}")
+    print(f"[CHART] Chart saved: {output_png_path}")
 
 def plot_handover_overhead(results_list, title, output_png_path):
     """
@@ -631,7 +631,7 @@ def plot_handover_overhead(results_list, title, output_png_path):
     os.makedirs(os.path.dirname(os.path.abspath(output_png_path)), exist_ok=True)
     plt.savefig(output_png_path, dpi=300)
     plt.close(fig)
-    print(f"📈 Chart saved: {output_png_path}")
+    print(f"[CHART] Chart saved: {output_png_path}")
 
 # ==============================================================================
 # 5. CUBIC VS. RENO COMPARISON MODULE
@@ -649,7 +649,7 @@ def print_cubic_vs_reno_comparison_table(exp1_results, exp2_results):
         return
 
     print("\n" + "=" * 130)
-    print("⚖️  DIRECT COMPARISON: TCP CUBIC (Exp 1) vs. TCP Reno (Exp 2) [Scenario C0 Baseline]")
+    print("  DIRECT COMPARISON: TCP CUBIC (Exp 1) vs. TCP Reno (Exp 2) [Scenario C0 Baseline]")
     print("=" * 130)
     header = (
         f"{'Size':<7} | {'Baseline CUBIC':<16} | {'Baseline Reno':<16} | {'Diff':<9} | "
@@ -681,7 +681,7 @@ def print_cubic_vs_reno_comparison_table(exp1_results, exp2_results):
     mean_ovhd_c = statistics.mean([e1_by_size[s]["stats"]["overhead_mean"] for s in common_sizes])
     mean_ovhd_r = statistics.mean([e2_by_size[s]["stats"]["overhead_mean"] for s in common_sizes])
     diff_ovhd_ms = (mean_ovhd_r - mean_ovhd_c) * 1000.0
-    print(f"📌 Overall Mean Handover Overhead: CUBIC = {mean_ovhd_c*1000:.1f}ms | Reno = {mean_ovhd_r*1000:.1f}ms (Net Delta: {diff_ovhd_ms:+.1f}ms)")
+    print(f" Overall Mean Handover Overhead: CUBIC = {mean_ovhd_c*1000:.1f}ms | Reno = {mean_ovhd_r*1000:.1f}ms (Net Delta: {diff_ovhd_ms:+.1f}ms)")
     print("=" * 130 + "\n")
 
 def save_cubic_vs_reno_csv(exp1_results, exp2_results, output_filepath):
@@ -821,7 +821,7 @@ def plot_cubic_vs_reno_total_transfer_time(exp1_results, exp2_results, output_pn
     os.makedirs(os.path.dirname(os.path.abspath(output_png_path)), exist_ok=True)
     plt.savefig(output_png_path, dpi=300)
     plt.close(fig)
-    print(f"📈 [Plot 1] Total Completion Time Chart saved: {output_png_path}")
+    print(f"[CHART] [Plot 1] Total Completion Time Chart saved: {output_png_path}")
 
 def plot_cubic_vs_reno_overhead(exp1_results, exp2_results, output_png_path):
     """
@@ -889,7 +889,7 @@ def plot_cubic_vs_reno_overhead(exp1_results, exp2_results, output_png_path):
     os.makedirs(os.path.dirname(os.path.abspath(output_png_path)), exist_ok=True)
     plt.savefig(output_png_path, dpi=300)
     plt.close(fig)
-    print(f"📈 [Plot 2] Absolute Handover Overhead Chart saved: {output_png_path}")
+    print(f"[CHART] [Plot 2] Absolute Handover Overhead Chart saved: {output_png_path}")
 
 def plot_cubic_vs_reno_relative_decay(exp1_results, exp2_results, output_png_path):
     """
@@ -943,7 +943,7 @@ def plot_cubic_vs_reno_relative_decay(exp1_results, exp2_results, output_png_pat
     os.makedirs(os.path.dirname(os.path.abspath(output_png_path)), exist_ok=True)
     plt.savefig(output_png_path, dpi=300)
     plt.close(fig)
-    print(f"📈 [Plot 3] Relative Overhead Decay Chart saved: {output_png_path}")
+    print(f"[CHART] [Plot 3] Relative Overhead Decay Chart saved: {output_png_path}")
 
 def plot_cubic_vs_reno_boxplots(exp1_results, exp2_results, output_png_path):
     """
@@ -999,7 +999,7 @@ def plot_cubic_vs_reno_boxplots(exp1_results, exp2_results, output_png_path):
     os.makedirs(os.path.dirname(os.path.abspath(output_png_path)), exist_ok=True)
     plt.savefig(output_png_path, dpi=300)
     plt.close(fig)
-    print(f"📈 [Bonus Plot] Dispersion Boxplots Chart saved: {output_png_path}")
+    print(f"[CHART] [Bonus Plot] Dispersion Boxplots Chart saved: {output_png_path}")
 
 def plot_cubic_vs_reno_handover_line(exp1_results, exp2_results, output_png_path):
     """
@@ -1077,7 +1077,7 @@ def plot_cubic_vs_reno_handover_line(exp1_results, exp2_results, output_png_path
     os.makedirs(os.path.dirname(os.path.abspath(output_png_path)), exist_ok=True)
     plt.savefig(output_png_path, dpi=300)
     plt.close(fig)
-    print(f"📈 [Line Plot] Handover Overhead Time Line Chart saved: {output_png_path}")
+    print(f"[CHART] [Line Plot] Handover Overhead Time Line Chart saved: {output_png_path}")
 
 # ==============================================================================
 # 6. MAIN EXECUTION CONTROLLER
@@ -1087,7 +1087,7 @@ def main():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     target = sys.argv[1] if len(sys.argv) > 1 else "all"
 
-    print(f"\n🚀 Running Baseline Handover Analysis (Scenario C0) [Target: {target}]...")
+    print(f"\n[START] Running Baseline Handover Analysis (Scenario C0) [Target: {target}]...")
 
     exp1_dir = os.path.join(base_dir, "EXPERIMENT1")
     exp2_dir = os.path.join(base_dir, "EXPERIMENT2")
@@ -1127,7 +1127,7 @@ def main():
             save_cubic_vs_reno_comparison_table_csv(exp1_res, exp2_res, os.path.join(analysis_dir, "table3_cubic_vs_reno_comparison.csv"))
             save_overall_metrics_summary_csv(exp1_res, exp2_res, os.path.join(analysis_dir, "table4_overall_protocol_metrics.csv"))
 
-            print(f"\n✅ All analysis table CSV files successfully exported to: {analysis_dir}\n")
+            print(f"\n[SUCCESS] All analysis table CSV files successfully exported to: {analysis_dir}\n")
 
             # 4. Generate Comparative Visualizations
             # Plot 1: The 'Left' Plot (Total Completion Time Standalone)
