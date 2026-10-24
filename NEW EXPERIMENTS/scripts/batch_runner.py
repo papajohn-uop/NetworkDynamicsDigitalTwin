@@ -94,7 +94,7 @@ def run_batch(config_file_path, iterations_override=None, cooldown_override=None
             for fs in fs_list:
                 print(f"\n   Target File Size: {fs}MB (Mode: {cwnd_mode})")
                 for i in range(1, iterations + 1):
-                    print(f"   ➔ Control Group [{b_name}] | Mode: {cwnd_mode} | File Size: {fs}MB | Iteration {i}/{iterations}...")
+                    print(f"   -> Control Group [{b_name}] | Mode: {cwnd_mode} | File Size: {fs}MB | Iteration {i}/{iterations}...")
                     env = os.environ.copy()
                     env["CWND_MODE"] = cwnd_mode
                     subprocess.run(["sudo", core_script, rate, lat, jit, loss, out_name, results_dir, str(fs), cwnd_mode], check=True, env=env)
@@ -123,11 +123,11 @@ def run_batch(config_file_path, iterations_override=None, cooldown_override=None
                 var_list = [(params["latency"], v, params["loss"]) for v in params["jitter_values"]]
                 
             for fs in fs_list:
-                print(f"\n   📁 Sweep File Size: {fs}MB (Mode: {cwnd_mode})")
+                print(f"\n   [DIR] Sweep File Size: {fs}MB (Mode: {cwnd_mode})")
                 for lat, jit, loss in var_list:
                     profile_name = f"sweep_{sweep_name}_{lat}_{jit}_{loss}".replace('%','').replace('.','')
                     for i in range(1, iterations + 1):
-                        print(f"   ➔ Iteration {i}/{iterations} for Config [Rate: {rate} | Latency: {lat} | Jitter: {jit} | Loss: {loss} | Mode: {cwnd_mode} | FileSize: {fs}MB]")
+                        print(f"   -> Iteration {i}/{iterations} for Config [Rate: {rate} | Latency: {lat} | Jitter: {jit} | Loss: {loss} | Mode: {cwnd_mode} | FileSize: {fs}MB]")
                         env = os.environ.copy()
                         env["CWND_MODE"] = cwnd_mode
                         subprocess.run(["sudo", core_script, rate, lat, jit, loss, profile_name, results_dir, str(fs), cwnd_mode], check=True, env=env)
@@ -152,9 +152,9 @@ def run_batch(config_file_path, iterations_override=None, cooldown_override=None
                 fs_list = [fs_list]
 
             for fs in fs_list:
-                print(f"\n   📁 Scenario Profile: {name} | Mode: {cwnd_mode} | File Size: {fs}MB")
+                print(f"\n   [DIR] Scenario Profile: {name} | Mode: {cwnd_mode} | File Size: {fs}MB")
                 for i in range(1, iterations + 1):
-                    print(f"   ➔ Scenario {name} | Mode: {cwnd_mode} | File Size: {fs}MB | Iteration {i}/{iterations}...")
+                    print(f"   -> Scenario {name} | Mode: {cwnd_mode} | File Size: {fs}MB | Iteration {i}/{iterations}...")
                     env = os.environ.copy()
                     env["CWND_MODE"] = cwnd_mode
                     subprocess.run(["sudo", core_script, rate, lat, jit, loss, name, results_dir, str(fs), cwnd_mode], check=True, env=env)
