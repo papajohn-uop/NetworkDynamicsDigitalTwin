@@ -1,0 +1,54 @@
+{
+  "STRICT_RAW": {
+    "policy_id": 1,
+    "n_runs": 100,
+    "false_alarm_ratio_pct": 96.0,
+    "false_alarm_ratio_std": 19.595917942265423,
+    "handovers_per_run_mean": 1.0,
+    "handovers_per_run_std": 0.0,
+    "detection_lag_mean_ms": 2.2122116453488427,
+    "detection_lag_std_ms": 12.439130258133632,
+    "sla_viol_duration_mean_ms": 80.0,
+    "sla_viol_duration_std_ms": 40.0,
+    "switch_latency_mean_ms": 5.311992177739739
+  },
+  "RAW_HYSTERESIS": {
+    "policy_id": 2,
+    "n_runs": 100,
+    "false_alarm_ratio_pct": 51.0,
+    "false_alarm_ratio_std": 49.989998999799944,
+    "handovers_per_run_mean": 1.0,
+    "handovers_per_run_std": 0.0,
+    "detection_lag_mean_ms": 69.29087234186149,
+    "detection_lag_std_ms": 82.45016272613043,
+    "sla_viol_duration_mean_ms": 347.0,
+    "sla_viol_duration_std_ms": 153.26773959317075,
+    "switch_latency_mean_ms": 5.380025124177337
+  },
+  "ROLLING_WINDOW": {
+    "policy_id": 3,
+    "n_runs": 100,
+    "false_alarm_ratio_pct": 65.0,
+    "false_alarm_ratio_std": 47.696960070847275,
+    "handovers_per_run_mean": 1.0,
+    "handovers_per_run_std": 0.0,
+    "detection_lag_mean_ms": 38.46722486055783,
+    "detection_lag_std_ms": 64.24130761649864,
+    "sla_viol_duration_mean_ms": 274.0,
+    "sla_viol_duration_std_ms": 186.87964041061295,
+    "switch_latency_mean_ms": 5.252647632732987
+  },
+  "WINDOW_HYSTERESIS": {
+    "policy_id": 4,
+    "n_runs": 100,
+    "false_alarm_ratio_pct": 49.0,
+    "false_alarm_ratio_std": 49.98999899979995,
+    "handovers_per_run_mean": 1.0,
+    "handovers_per_run_std": 0.0,
+    "detection_lag_mean_ms": 102.45363805266147,
+    "detection_lag_std_ms": 110.85961278303684,
+    "sla_viol_duration_mean_ms": 377.0,
+    "sla_viol_duration_std_ms": 251.33841727837788,
+    "switch_latency_mean_ms": 5.392785016447306
+  }
+}

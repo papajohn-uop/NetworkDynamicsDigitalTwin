@@ -361,10 +361,10 @@ def plot_monte_carlo_pareto(results_dir: str = RESULTS_DIR, plots_dir: str = PLO
     plt.figure(figsize=(7.5, 5.5))
     ax = plt.gca()
 
-    # Draw Pareto boundary connecting P1 -> P2 -> P4
+    # Draw Trade-off boundary connecting P1 -> P2 -> P4
     pareto_x = [lags[0], lags[1], lags[3]]
     pareto_y = [fa_rates[0], fa_rates[1], fa_rates[3]]
-    plt.plot(pareto_x, pareto_y, "--", color="#7f7f7f", lw=1.8, label="Empirical Pareto Boundary", zorder=1)
+    plt.plot(pareto_x, pareto_y, "--", color="#7f7f7f", lw=1.8, label="Empirical Trade-off Boundary", zorder=1)
 
     # Plot policy points
     for i in range(4):
@@ -382,7 +382,7 @@ def plot_monte_carlo_pareto(results_dir: str = RESULTS_DIR, plots_dir: str = PLO
     p2_x = lags[1]
     p2_y = fa_rates[1]
     ax.annotate(
-        "[*] Pareto-Optimal Operating Point\n(Low Flapping + Low Detection Lag)",
+        "Policy 2 Operating Knee\n(Low Flapping + Low Detection Lag)",
         xy=(p2_x, p2_y), xytext=(p2_x + 35, p2_y + 12),
         arrowprops=dict(facecolor="#2ca02c", shrink=0.08, width=1.5, headwidth=6),
         fontsize=9.5, fontweight="bold", color="#1e4620",
@@ -391,7 +391,7 @@ def plot_monte_carlo_pareto(results_dir: str = RESULTS_DIR, plots_dir: str = PLO
 
     plt.xlabel("SLA Violation Detection Lag $T_{\\mathrm{detect}}$ (ms)", fontsize=11, fontweight="bold")
     plt.ylabel("False Handover Ratio (%)", fontsize=11, fontweight="bold")
-    plt.title("Pareto Trade-Off: Detection Lag vs. False Handover Ratio ($N=30$ Runs/Policy)", fontsize=12, fontweight="bold")
+    plt.title("Empirical Trade-Off: Detection Lag vs. False Handover Ratio ($N=30$ Runs/Policy)", fontsize=12, fontweight="bold")
     plt.grid(True, linestyle="--", alpha=0.5)
     plt.legend(loc="upper right", fontsize=9.5, framealpha=0.95)
     plt.xlim(-10, max(lags) + 70)
@@ -403,7 +403,7 @@ def plot_monte_carlo_pareto(results_dir: str = RESULTS_DIR, plots_dir: str = PLO
     plt.savefig(pdf_path, bbox_inches="tight")
     plt.close()
 
-    print(f"[SUCCESS] Generated Pareto plot: {png_path} and {pdf_path}")
+    print(f"[SUCCESS] Generated Trade-Off plot: {png_path} and {pdf_path}")
 
 
 def plot_monte_carlo_boxplots(results_dir: str = RESULTS_DIR, plots_dir: str = PLOTS_DIR):
