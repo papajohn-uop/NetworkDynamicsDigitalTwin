@@ -189,9 +189,10 @@ Phase 1 established six foundational empirical findings that provide the ground 
   * Persistent structural degradation (delay steps to 95 ms at $t = 10.0$ s, breaching SLA $\tau=65$ ms).
   * Isolates false alarms from true SLA restoration across all 4 policies.
 * **Part B: Randomized Monte Carlo Stress-Testing**
-  * 120 automated test iterations ($N = 30$ runs per policy across 20.0s sessions).
-  * Poisson-distributed noise bursts ($\lambda = 0.5\text{ s}^{-1}$) and random step arrivals ($t_{\text{step}} \sim \mathcal{U}(6.0, 14.0)\text{ s}$).
-  * Aggregates false-alarm ratios, flapping counts, and SLA violation lag.
+  * Detailed documentation: [`phase3_eval/MONTE_CARLO_EXPERIMENT.md`](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/phase3_eval/MONTE_CARLO_EXPERIMENT.md)
+  * 400 automated test iterations ($N = 100$ runs per policy across 20.0s sessions).
+  * Poisson-distributed noise bursts ($\lambda = 0.5\text{ s}^{-1}$) and random step arrivals ($t_{\text{step}} \sim \mathcal{U}(5.0, 9.0)\text{ s}$).
+  * High-precision empirical aggregates: False alarm ratios, detection lag distributions, and SLA violation metrics.
 
 ---
 
@@ -413,10 +414,13 @@ With Phase 1 (Platform Verification & Calibration) fully concluded across 1,520 
 │                                           ▼                                                     │
 │  [MILESTONE 4: PAPER INTEGRATION & PLOTTING] - COMPLETED                                        │
 │  • Generated Publication Figures via `phase3_eval/analyze_phase3.py`:                           │
-│    - Hero trace timeline plot (`plots/hero_trace_comparative.pdf` and `.png`).                  │
-│    - Pareto frontier curve (`plots/monte_carlo_pareto.pdf` and `.png`).                         │
+│    - Hero trace 5-panel plot (`plots/hero_trace_5panel.pdf` and `.png`).                        │
+│    - Hero trace compact plot (`plots/hero_trace_compact.pdf` and `.png`).                       │
+│    - Trade-off clean plot (`plots/monte_carlo_tradeoff_clean.pdf` and `.png`).                  │
+│    - Trade-off compact with embedded table (`plots/monte_carlo_tradeoff_compact_table.pdf`).    │
+│    - Trade-off compact with table legend (`plots/monte_carlo_tradeoff_with_table.pdf`).        │
 │    - Flapping and violation lag boxplots (`plots/monte_carlo_boxplots.pdf` and `.png`).         │
-│  • Updated `paper/main.tex` with Figure 3 and empirical Tables V & VI.                          │
+│  • Updated `paper/main.tex` with empirical Tables V & VI.                                       │
 │                                                                                                 │
 └─────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```

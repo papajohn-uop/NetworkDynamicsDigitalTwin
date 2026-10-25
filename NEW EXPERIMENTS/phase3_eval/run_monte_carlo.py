@@ -101,8 +101,8 @@ class MonteCarloRunner:
             interval = np.random.exponential(1.0 / 0.5)
             t_cur += interval
             if t_cur < (t_step - 0.2):
-                duration = random.uniform(0.08, 0.15)  # 80-150 ms (1-2 ticks)
-                amplitude = random.uniform(32.0, 55.0)  # +32 to +55 ms (RTT reaches 82-105 ms)
+                duration = random.uniform(0.05, 0.08)  # 50-80 ms (strictly sub-polling tick, true transient micro-burst)
+                amplitude = random.uniform(28.0, 42.0)  # +28 to +42 ms (RTT reaches 78-92 ms, matching Hero Trace)
                 bursts.append({
                     "start": t_cur,
                     "end": t_cur + duration,

@@ -335,75 +335,229 @@ def plot_hero_trace(results_dir: str = RESULTS_DIR, plots_dir: str = PLOTS_DIR):
         shutil.copyfile(src_png, dst_png)
 
 
-def plot_monte_carlo_pareto(results_dir: str = RESULTS_DIR, plots_dir: str = PLOTS_DIR):
+def plot_monte_carlo_tradeoff_clean(results_dir: str = RESULTS_DIR, plots_dir: str = PLOTS_DIR):
     """
-    Generate Pareto Frontier Plot: Detection Lag (X-axis) vs. False Handover Ratio (Y-axis).
+    Generate Clean Trade-Off Plot (NO error bars):
+    Plots Detection Lag (X-axis) vs. False Handover Ratio (Y-axis).
     """
     json_file = os.path.join(results_dir, "monte_carlo_summary.json")
     if not os.path.exists(json_file):
-        print("[WARN] monte_carlo_summary.json not found. Skipping Pareto plot.")
+        print("[WARN] monte_carlo_summary.json not found. Skipping plot.")
         return
 
     with open(json_file, "r") as f:
         summary = json.load(f)
 
-    # Extract metrics
     policies = ["STRICT_RAW", "RAW_HYSTERESIS", "ROLLING_WINDOW", "WINDOW_HYSTERESIS"]
     names = ["P1 (Strict Raw)", "P2 (Raw + Hyst)", "P3 (Rolling Window)", "P4 (Win + Hyst)"]
     colors = ["#1f77b4", "#2ca02c", "#ff7f0e", "#9467bd"]
     markers = ["X", "*", "o", "s"]
+    sizes = [130, 200, 120, 120]
+
+    lags = [summary[p]["detection_lag_mean_ms"] for p in policies]
+    fa_rates = [summary[p]["false_alarm_ratio_pct"] for p in policies]
+    n_runs = summary[policies[0]]["n_runs"]
+
+    plt.figure(figsize=(5.8, 3.8))
+    ax = plt.gca()
+
+    # Plot policy points as clean scatter markers without error bars
+    for i in range(4):
+        plt.scatter(
+            [lags[i]], [fa_rates[i]],
+            marker=markers[i], color=colors[i], s=sizes[i],
+            edgecolors="black", linewidth=1.2,
+            label=f"{names[i]} ({fa_rates[i]:.1f}%, {lags[i]:.1f}ms)",
+            zorder=3
+        )
+
+    plt.xlabel(r"SLA Violation Detection Lag $T_{\mathrm{detect}}$ (ms)", fontsize=10, fontweight="bold")
+    plt.ylabel("False Handover Ratio (%)", fontsize=10, fontweight="bold")
+    plt.title(f"Empirical Trade-Off: Detection Lag vs. False Handover ($N={n_runs}$)", fontsize=10.5, fontweight="bold")
+    plt.grid(True, linestyle="--", alpha=0.5)
+    plt.legend(loc="upper right", fontsize=8.5, framealpha=0.95)
+    plt.xlim(-5, 115)
+    plt.ylim(42, 102)
+
+    plt.tight_layout()
+    clean_png = os.path.join(plots_dir, "monte_carlo_tradeoff_clean.png")
+    clean_pdf = os.path.join(plots_dir, "monte_carlo_tradeoff_clean.pdf")
+    compact_png = os.path.join(plots_dir, "monte_carlo_tradeoff_compact.png")
+    compact_pdf = os.path.join(plots_dir, "monte_carlo_tradeoff_compact.pdf")
+    pareto_png = os.path.join(plots_dir, "monte_carlo_pareto.png")
+    pareto_pdf = os.path.join(plots_dir, "monte_carlo_pareto.pdf")
+
+    for p in [clean_png, compact_png, pareto_png]:
+        plt.savefig(p, dpi=300)
+    for p in [clean_pdf, compact_pdf, pareto_pdf]:
+        plt.savefig(p)
+    plt.close()
+
+    print(f"[SUCCESS] Generated Compact Trade-Off plot: {compact_png} and {compact_pdf}")
+
+
+def plot_monte_carlo_tradeoff_with_table(results_dir: str = RESULTS_DIR, plots_dir: str = PLOTS_DIR):
+    """
+    Generate Trade-Off Plot with Detailed Legend Table:
+    Features clean points and an embedded legend table showing exact Mean +- Std values.
+    """
+    json_file = os.path.join(results_dir, "monte_carlo_summary.json")
+    if not os.path.exists(json_file):
+        return
+
+    with open(json_file, "r") as f:
+        summary = json.load(f)
+
+    policies = ["STRICT_RAW", "RAW_HYSTERESIS", "ROLLING_WINDOW", "WINDOW_HYSTERESIS"]
+    names = ["P1 (Strict Raw)", "P2 (Raw + Hyst)", "P3 (Rolling Window)", "P4 (Win + Hyst)"]
+    colors = ["#1f77b4", "#2ca02c", "#ff7f0e", "#9467bd"]
+    markers = ["X", "*", "o", "s"]
+    sizes = [130, 200, 120, 120]
 
     lags = [summary[p]["detection_lag_mean_ms"] for p in policies]
     lags_std = [summary[p]["detection_lag_std_ms"] for p in policies]
     fa_rates = [summary[p]["false_alarm_ratio_pct"] for p in policies]
     fa_std = [summary[p]["false_alarm_ratio_std"] for p in policies]
+    n_runs = summary[policies[0]]["n_runs"]
 
-    plt.figure(figsize=(7.5, 5.5))
-    ax = plt.gca()
-
-    # Draw Trade-off boundary connecting P1 -> P2 -> P4
-    pareto_x = [lags[0], lags[1], lags[3]]
-    pareto_y = [fa_rates[0], fa_rates[1], fa_rates[3]]
-    plt.plot(pareto_x, pareto_y, "--", color="#7f7f7f", lw=1.8, label="Empirical Trade-off Boundary", zorder=1)
+    fig, ax = plt.subplots(figsize=(7.4, 4.4))
 
     # Plot policy points
     for i in range(4):
-        plt.errorbar(
-            lags[i], fa_rates[i],
-            xerr=lags_std[i] if lags_std[i] > 0 else None,
-            yerr=fa_std[i] if fa_std[i] > 0 else None,
-            fmt=markers[i], color=colors[i], ecolor=colors[i],
-            elinewidth=1.5, capsize=4, markersize=10,
-            label=f"{names[i]} ({fa_rates[i]:.1f}%, {lags[i]:.0f}ms)",
+        # Legend label formatted with exact table values
+        lbl = f"{names[i]}:  False Alarm = {fa_rates[i]:.1f} ± {fa_std[i]:.1f}%,  Lag = {lags[i]:.1f} ± {lags_std[i]:.1f} ms"
+        ax.scatter(
+            [lags[i]], [fa_rates[i]],
+            marker=markers[i], color=colors[i], s=sizes[i],
+            edgecolors="black", linewidth=1.2,
+            label=lbl,
             zorder=3
         )
 
-    # Highlight Policy 2 optimal knee
-    p2_x = lags[1]
-    p2_y = fa_rates[1]
-    ax.annotate(
-        "Policy 2 Operating Knee\n(Low Flapping + Low Detection Lag)",
-        xy=(p2_x, p2_y), xytext=(p2_x + 35, p2_y + 12),
-        arrowprops=dict(facecolor="#2ca02c", shrink=0.08, width=1.5, headwidth=6),
-        fontsize=9.5, fontweight="bold", color="#1e4620",
-        bbox=dict(boxstyle="round,pad=0.35", fc="#e6f4ea", ec="#2ca02c", lw=1.2)
+    ax.set_xlabel(r"SLA Violation Detection Lag $T_{\mathrm{detect}}$ (ms)", fontsize=10, fontweight="bold")
+    ax.set_ylabel("False Handover Ratio (%)", fontsize=10, fontweight="bold")
+    ax.set_title(f"Empirical Trade-Off with Full Statistics ($N={n_runs}$ Runs/Policy)", fontsize=10.5, fontweight="bold")
+    ax.grid(True, linestyle="--", alpha=0.5)
+
+    # Beautiful tabular legend
+    legend = ax.legend(
+        loc="upper right",
+        title="Evaluated Policies ($N=100$ Runs) [Mean ± Std]",
+        title_fontsize=9.0,
+        fontsize=8.2,
+        framealpha=0.96,
+        edgecolor="#cccccc"
     )
+    legend.get_title().set_fontweight("bold")
 
-    plt.xlabel("SLA Violation Detection Lag $T_{\\mathrm{detect}}$ (ms)", fontsize=11, fontweight="bold")
-    plt.ylabel("False Handover Ratio (%)", fontsize=11, fontweight="bold")
-    plt.title("Empirical Trade-Off: Detection Lag vs. False Handover Ratio ($N=30$ Runs/Policy)", fontsize=12, fontweight="bold")
-    plt.grid(True, linestyle="--", alpha=0.5)
-    plt.legend(loc="upper right", fontsize=9.5, framealpha=0.95)
-    plt.xlim(-10, max(lags) + 70)
-    plt.ylim(-5, max(fa_rates) + 15)
+    ax.set_xlim(-5, 115)
+    ax.set_ylim(42, 103)
+    plt.tight_layout()
 
-    png_path = os.path.join(plots_dir, "monte_carlo_pareto.png")
-    pdf_path = os.path.join(plots_dir, "monte_carlo_pareto.pdf")
-    plt.savefig(png_path, dpi=300, bbox_inches="tight")
-    plt.savefig(pdf_path, bbox_inches="tight")
+    table_png = os.path.join(plots_dir, "monte_carlo_tradeoff_with_table.png")
+    table_pdf = os.path.join(plots_dir, "monte_carlo_tradeoff_with_table.pdf")
+    leg_png = os.path.join(plots_dir, "monte_carlo_tradeoff_compact_legend_table.png")
+    leg_pdf = os.path.join(plots_dir, "monte_carlo_tradeoff_compact_legend_table.pdf")
+
+    for p in [table_png, leg_png]:
+        plt.savefig(p, dpi=300)
+    for p in [table_pdf, leg_pdf]:
+        plt.savefig(p)
     plt.close()
 
-    print(f"[SUCCESS] Generated Trade-Off plot: {png_path} and {pdf_path}")
+    print(f"[SUCCESS] Generated Trade-Off plot with Table Legend: {table_png} and {table_pdf}")
+
+
+def plot_monte_carlo_tradeoff_compact_table(results_dir: str = RESULTS_DIR, plots_dir: str = PLOTS_DIR):
+    """
+    Generate Compact Trade-Off Plot with an Embedded Summary Table:
+    Features clean scatter points (no error bars, no dashed lines, no knee callout)
+    and an embedded grid table in the upper-right quadrant displaying Mean +- Std for
+    both False Alarm Ratio and Detection Delay.
+    """
+    json_file = os.path.join(results_dir, "monte_carlo_summary.json")
+    if not os.path.exists(json_file):
+        return
+
+    with open(json_file, "r") as f:
+        summary = json.load(f)
+
+    policies = ["STRICT_RAW", "RAW_HYSTERESIS", "ROLLING_WINDOW", "WINDOW_HYSTERESIS"]
+    names = ["P1 (Strict Raw)", "P2 (Raw + Hyst)", "P3 (Window)", "P4 (Win + Hyst)"]
+    colors = ["#1f77b4", "#2ca02c", "#ff7f0e", "#9467bd"]
+    markers = ["X", "*", "o", "s"]
+    sizes = [130, 200, 120, 120]
+
+    lags = [summary[p]["detection_lag_mean_ms"] for p in policies]
+    lags_std = [summary[p]["detection_lag_std_ms"] for p in policies]
+    fa_rates = [summary[p]["false_alarm_ratio_pct"] for p in policies]
+    fa_std = [summary[p]["false_alarm_ratio_std"] for p in policies]
+    n_runs = summary[policies[0]]["n_runs"]
+
+    fig, ax = plt.subplots(figsize=(6.2, 4.0))
+
+    # Plot policy points
+    for i in range(4):
+        ax.scatter(
+            [lags[i]], [fa_rates[i]],
+            marker=markers[i], color=colors[i], s=sizes[i],
+            edgecolors="black", linewidth=1.2,
+            zorder=3
+        )
+
+    # Embedded Table data with Mean +- Std and marker shape keys
+    table_data = [
+        ["P1 (X) Strict Raw", f"{fa_rates[0]:.1f} ± {fa_std[0]:.1f}%", f"{lags[0]:.1f} ± {lags_std[0]:.1f} ms"],
+        ["P2 (*) Raw + Hyst", f"{fa_rates[1]:.1f} ± {fa_std[1]:.1f}%", f"{lags[1]:.1f} ± {lags_std[1]:.1f} ms"],
+        ["P3 (o) Window", f"{fa_rates[2]:.1f} ± {fa_std[2]:.1f}%", f"{lags[2]:.1f} ± {lags_std[2]:.1f} ms"],
+        ["P4 (s) Win + Hyst", f"{fa_rates[3]:.1f} ± {fa_std[3]:.1f}%", f"{lags[3]:.1f} ± {lags_std[3]:.1f} ms"],
+    ]
+
+    col_labels = ["Policy", "False Alarm", r"Lag $T_{\mathrm{detect}}$"]
+    col_widths = [0.30, 0.34, 0.36]
+
+    table = ax.table(
+        cellText=table_data,
+        colLabels=col_labels,
+        colWidths=col_widths,
+        loc="upper right",
+        bbox=[0.37, 0.58, 0.61, 0.38]
+    )
+    table.auto_set_font_size(False)
+    table.set_fontsize(7.5)
+
+    # Style cells with colors matching the scatter points
+    for (row, col), cell in table.get_celld().items():
+        cell.set_edgecolor("#d0d0d0")
+        if row == 0:
+            cell.set_facecolor("#f0f2f5")
+            cell.set_text_props(weight="bold", color="#111111")
+        else:
+            cell.set_facecolor("white")
+            if col == 0:
+                cell.set_text_props(weight="bold", color=colors[row - 1])
+
+    ax.set_xlabel(r"SLA Violation Detection Lag $T_{\mathrm{detect}}$ (ms)", fontsize=9.5, fontweight="bold")
+    ax.set_ylabel("False Handover Ratio (%)", fontsize=9.5, fontweight="bold")
+    ax.set_title(f"Empirical Trade-Off: Detection Lag vs. False Handover ($N={n_runs}$)", fontsize=10, fontweight="bold")
+    ax.grid(True, linestyle="--", alpha=0.5)
+    ax.set_xlim(-5, 115)
+    ax.set_ylim(42, 102)
+
+    plt.tight_layout()
+    out_png = os.path.join(plots_dir, "monte_carlo_tradeoff_compact_table.png")
+    out_pdf = os.path.join(plots_dir, "monte_carlo_tradeoff_compact_table.pdf")
+    plt.savefig(out_png, dpi=300)
+    plt.savefig(out_pdf)
+    plt.close()
+
+    print(f"[SUCCESS] Generated Compact Trade-Off with Embedded Table: {out_png} and {out_pdf}")
+
+
+def plot_monte_carlo_pareto(results_dir: str = RESULTS_DIR, plots_dir: str = PLOTS_DIR):
+    plot_monte_carlo_tradeoff_clean(results_dir, plots_dir)
+    plot_monte_carlo_tradeoff_compact_table(results_dir, plots_dir)
+    plot_monte_carlo_tradeoff_with_table(results_dir, plots_dir)
 
 
 def plot_monte_carlo_boxplots(results_dir: str = RESULTS_DIR, plots_dir: str = PLOTS_DIR):
@@ -527,8 +681,16 @@ def print_paper_tables(results_dir: str = RESULTS_DIR):
     print("\n" + "=" * 80)
     print("CONFERENCE PAPER TABLE VI: MONTE CARLO AGGREGATES (LaTeX Ready)")
     print("=" * 80)
-    print(r"""\begin{table}[htbp]
-\caption{Randomized Stress-Testing: Monte Carlo Aggregates ($N = 30$ Runs per Policy)}
+    mapping = {
+        "STRICT_RAW": "Policy 1 (Strict Raw)",
+        "RAW_HYSTERESIS": "Policy 2 (Raw + Hyst)",
+        "ROLLING_WINDOW": "Policy 3 (Window)",
+        "WINDOW_HYSTERESIS": "Policy 4 (Win + Hyst)",
+    }
+    first_key = list(mapping.keys())[0]
+    n_runs = summary[first_key]['n_runs'] if first_key in summary else 100
+    print(r"""\begin{table}[htbp]""" + f"""
+\\caption{{Randomized Stress-Testing: Monte Carlo Aggregates ($N = {n_runs}$ Runs per Policy)}}""" + r"""
 \label{tab:random_comparison}
 \centering
 \begin{tabular}{lcccc}
@@ -536,13 +698,6 @@ def print_paper_tables(results_dir: str = RESULTS_DIR):
 \textbf{Evaluated} & \textbf{False Handover} & \textbf{Detection Delay} & \textbf{Handovers} & \textbf{Mean SLA Viol.} \\
 \textbf{Policy} & \textbf{Ratio (\%)} & \textbf{$T_{\text{detect}}$ (ms)} & \textbf{per Run} & \textbf{Duration (ms)} \\
 \midrule""")
-    
-    mapping = {
-        "STRICT_RAW": "Policy 1 (Strict Raw)",
-        "RAW_HYSTERESIS": "Policy 2 (Raw + Hyst)",
-        "ROLLING_WINDOW": "Policy 3 (Window)",
-        "WINDOW_HYSTERESIS": "Policy 4 (Win + Hyst)",
-    }
 
     for key, name in mapping.items():
         if key in summary:

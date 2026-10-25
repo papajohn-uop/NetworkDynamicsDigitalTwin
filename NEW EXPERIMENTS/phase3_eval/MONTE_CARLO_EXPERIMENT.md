@@ -73,3 +73,34 @@ sudo python3 phase3_eval/run_monte_carlo.py --runs 100 --duration 20.0
   ```bash
   python3 phase3_eval/analyze_phase3.py
   ```
+
+---
+
+## 5. Empirical Results & Statistical Summary ($N = 100$ Runs / Policy)
+
+Execution of the full 400-trial benchmark produced the following aggregate metrics:
+
+| Policy ID | Evaluated Policy | False Handover Ratio (%) | Detection Lag $T_{\text{detect}}$ (ms) | Handovers per Run | Mean SLA Violation Duration (ms) | Netlink Switch Latency (ms) |
+| :---: | :--- | :---: | :---: | :---: | :---: | :---: |
+| **Policy 1** | **Strict Raw** ($K=1$) | $96.0 \pm 19.6\%$ | $2.2 \pm 12.4\text{ ms}$ | $1.0 \pm 0.0$ | $80.0 \pm 40.0\text{ ms}$ | $5.31\text{ ms}$ |
+| **Policy 2** | **Raw + Hysteresis** ($K=2$) | **$51.0 \pm 50.0\%$** | $69.3 \pm 82.5\text{ ms}$ | $1.0 \pm 0.0$ | $347.0 \pm 153.3\text{ ms}$ | $5.38\text{ ms}$ |
+| **Policy 3** | **Rolling Window** ($N=3$) | $65.0 \pm 47.7\%$ | $38.5 \pm 64.2\text{ ms}$ | $1.0 \pm 0.0$ | $274.0 \pm 186.9\text{ ms}$ | $5.25\text{ ms}$ |
+| **Policy 4** | **Window + Hyst** ($N=3, K=2$) | **$49.0 \pm 50.0\%$** | $102.5 \pm 110.9\text{ ms}$ | $1.0 \pm 0.0$ | $377.0 \pm 251.3\text{ ms}$ | $5.39\text{ ms}$ |
+
+### 5.1 Key Findings & Statistical Insights
+
+1. **Vulnerability of Memoryless Triggering (Policy 1):**
+   Under Poisson channel noise ($\lambda = 0.5\text{ s}^{-1}$), Policy 1 experienced false alarms in **$96.0\%$ of runs**, proving that raw single-sample thresholding is practically unviable in bursty wireless channels.
+2. **Noise Suppression via Hysteresis (Policy 2):**
+   Requiring two consecutive violations cuts false alarms by nearly half ($51.0\%$) while achieving a mean detection delay of **$69.3\text{ ms}$** on genuine failure.
+3. **Window Averaging Lag vs. Outliers (Policy 3):**
+   A 3-sample moving window reduces false alarms to $65.0\%$ with low detection lag ($38.5\text{ ms}$), but remains susceptible when Poisson spikes exceed the window dilution budget.
+4. **Conservative Dual-Stage Filtering (Policy 4):**
+   Policy 4 delivers the lowest false alarm rate ($49.0\%$), but incurs higher detection lag ($102.5\text{ ms}$), extending cumulative SLA violation duration to $377\text{ ms}$.
+
+### 5.2 Generated Visualizations
+* **Boxplots:** [`plots/monte_carlo_boxplots.pdf`](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/plots/monte_carlo_boxplots.pdf) (Route Flapping Stability and SLA Detection Delay distributions).
+* **Compact Trade-Off with Embedded Table:** [`plots/monte_carlo_tradeoff_compact_table.pdf`](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/plots/monte_carlo_tradeoff_compact_table.pdf) (Clean scatter points with embedded $\text{Mean} \pm \text{Std}$ table in the upper-right canvas).
+* **Trade-Off with Table Legend:** [`plots/monte_carlo_tradeoff_with_table.pdf`](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/plots/monte_carlo_tradeoff_with_table.pdf) (Detailed tabular legend containing $\text{Mean} \pm \text{Std}$).
+* **Clean Minimalist Trade-Off:** [`plots/monte_carlo_tradeoff_clean.pdf`](file:///home/ubuntu/papajohn/AMAZING_6G/PAPER/NEW_APPROACH/paper_repo/NEW%20EXPERIMENTS/plots/monte_carlo_tradeoff_clean.pdf) (Minimalist markers, zoomed $Y \in [42\%, 102\%]$).
+
